@@ -28,10 +28,27 @@ function nonempty(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function externalId(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() === value && /^EONET_[\w-]+$/.test(value);
+}
+
 function date(value: unknown): string | null {
-  // Require a timestamp with an explicit timezone, rather than locale-dependent parsing.
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value)
-    && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+  // Date.parse alone silently rolls impossible dates (e.g. February 30) forward.
+  if (typeof value !== 'string' || value.trim() !== value) return null;
+  const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!parts) return null;
+  const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] = parts;
+  const leap = Number(year) % 4 === 0 && (Number(year) % 100 !== 0 || Number(year) % 400 === 0);
+  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (Number(month) < 1 || Number(month) > 12 || Number(day) < 1
+    || Number(day) > monthDays[Number(month) - 1] || Number(hour) > 23
+    || Number(minute) > 59 || Number(second) > 59
+    || Number(offsetHour ?? 0) > 23 || Number(offsetMinute ?? 0) > 59) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  const utc = new Date(timestamp).toISOString();
+  // Keep the domain's UTC strings lexicographically sortable within four-digit years.
+  return /^\d{4}-/.test(utc) ? utc : null;
 }
 
 function httpUrl(value: unknown): string | null {
@@ -44,10 +61,11 @@ function httpUrl(value: unknown): string | null {
 }
 
 function position(value: unknown): Position | null {
-  if (!Array.isArray(value) || value.length < 2) return null;
-  const [longitude, latitude] = value;
+  if (!Array.isArray(value) || (value.length !== 2 && value.length !== 3)) return null;
+  const [longitude, latitude, altitude] = value;
   return typeof longitude === 'number' && Number.isFinite(longitude) && Math.abs(longitude) <= 180
     && typeof latitude === 'number' && Number.isFinite(latitude) && Math.abs(latitude) <= 90
+    && (value.length === 2 || (typeof altitude === 'number' && Number.isFinite(altitude)))
     ? [longitude, latitude] : null;
 }
 
@@ -79,26 +97,32 @@ function observation(value: unknown): EventObservation | null {
   if (!time || !shape) return null;
   const magnitude = typeof value.magnitudeValue === 'number' && Number.isFinite(value.magnitudeValue)
     && nonempty(value.magnitudeUnit)
-    ? { value: value.magnitudeValue, unit: value.magnitudeUnit,
-        description: nonempty(value.magnitudeDescription) ? value.magnitudeDescription : null }
+    ? { value: value.magnitudeValue, unit: value.magnitudeUnit.trim(),
+        description: nonempty(value.magnitudeDescription) ? value.magnitudeDescription.trim() : null }
     : null;
   return { time, geometry: shape, magnitude };
 }
 
 /** Runtime validation lives here; no cast of an untrusted response into the domain. */
 export function normalizeEonetEvent(raw: unknown, fetchedAt: string): ClimateEvent | null {
-  if (!record(raw) || !nonempty(raw.id) || !/^EONET_[\w-]+$/.test(raw.id)
+  const fetchedTime = date(fetchedAt);
+  if (!record(raw) || !externalId(raw.id)
     || !nonempty(raw.title) || !Array.isArray(raw.geometry)
-    || !Array.isArray(raw.categories) || !Array.isArray(raw.sources)) return null;
-  if (raw.closed !== null && !date(raw.closed)) return null;
+    || !Array.isArray(raw.categories) || !raw.categories.length
+    || !Array.isArray(raw.sources) || !fetchedTime) return null;
+  const closedAt = date(raw.closed);
+  if (raw.closed !== null && !closedAt) return null;
   const observations = raw.geometry.map(observation)
     .filter((item): item is EventObservation => item !== null)
     .sort((a, b) => a.time.localeCompare(b.time));
   // Reject an entire record with malformed geometry rather than inventing its latest position.
   if (!observations.length || observations.length !== raw.geometry.length) return null;
   const latest = observations[observations.length - 1];
-  const normalizedCategories = [...new Set(raw.categories.map((item: unknown) =>
-    record(item) && typeof item.id === 'string' ? categories[item.id] ?? EventCategory.Other : EventCategory.Other))];
+  const normalizedCategories = new Set<EventCategory>();
+  for (const category of raw.categories) {
+    if (!record(category) || !nonempty(category.id)) return null;
+    normalizedCategories.add(Object.hasOwn(categories, category.id) ? categories[category.id] : EventCategory.Other);
+  }
   const sources: EventSource[] = [{
     id: `eonet:${raw.id}`, name: 'NASA EONET event record',
     url: `${API}/events/${encodeURIComponent(raw.id)}`, kind: SourceKind.EventReport,
@@ -107,21 +131,21 @@ export function normalizeEonetEvent(raw: unknown, fetchedAt: string): ClimateEve
     if (!record(source) || !nonempty(source.id)) continue;
     const url = httpUrl(source.url);
     if (url && !sources.some((item) => item.url === url)) {
-      sources.push({ id: `${source.id}:${sources.length}`, name: source.id, url, kind: SourceKind.EventReport });
+      sources.push({ id: `${source.id.trim()}:${sources.length}`, name: source.id.trim(), url, kind: SourceKind.EventReport });
     }
   }
   return {
     id: `eonet:${raw.id}`, title: raw.title.trim(),
-    categories: normalizedCategories.length ? normalizedCategories : [EventCategory.Other],
+    categories: [...normalizedCategories],
     summary: nonempty(raw.description) ? raw.description.trim() : null,
     location: { label: null, geometry: latest.geometry,
       marker: latest.geometry.type === 'Point' ? latest.geometry.coordinates : latest.geometry.coordinates[0][0] },
-    time: { firstObservedAt: observations[0].time, lastObservedAt: latest.time, closedAt: date(raw.closed) },
+    time: { firstObservedAt: observations[0].time, lastObservedAt: latest.time, closedAt },
     status: raw.closed === null ? EventStatus.Open : EventStatus.Closed,
     severity: Severity.Unknown,
     observations, sources,
     evidence: { status: EvidenceStatus.Unverified, references: [] },
-    provenance: { provider: 'eonet', externalId: raw.id, fetchedAt, dataKind: DataKind.Reported },
+    provenance: { provider: 'eonet', externalId: raw.id, fetchedAt: fetchedTime, dataKind: DataKind.Reported },
   };
 }
 
@@ -129,17 +153,36 @@ export class EonetProvider implements EventSourceProvider {
   readonly id = 'eonet';
   readonly name = 'NASA EONET';
 
-  constructor(private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {}
+  private readonly fetcher: typeof fetch;
 
-  private async request(url: URL, signal?: AbortSignal): Promise<unknown | null> {
-    const timeout = AbortSignal.timeout(15_000);
-    const response = await this.fetcher(url, {
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-      headers: { Accept: 'application/json' },
-    });
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`NASA EONET returned HTTP ${response.status}.`);
-    return response.json();
+  constructor(fetcher: typeof fetch = globalThis.fetch.bind(globalThis)) {
+    this.fetcher = fetcher;
+  }
+
+  private async request(url: URL, signal?: AbortSignal, allowNotFound = false): Promise<unknown> {
+    // Use widely supported browser primitives and release listeners/timers after body parsing.
+    const controller = new AbortController();
+    const cancel = () => controller.abort(signal?.reason);
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(() => controller.abort(new DOMException('NASA EONET request timed out.', 'TimeoutError')), 15_000);
+    try {
+      controller.signal.throwIfAborted();
+      const response = await this.fetcher(url, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      controller.signal.throwIfAborted();
+      // undefined distinguishes a genuine 404 from a malformed JSON null response.
+      if (allowNotFound && response.status === 404) return undefined;
+      if (!response.ok) throw new Error(`NASA EONET returned HTTP ${response.status}.`);
+      const data: unknown = await response.json();
+      controller.signal.throwIfAborted();
+      return data;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
+    }
   }
 
   async fetchEvents({ days = 30, limit = 60, signal }: EventQuery = {}): Promise<EventBatch> {
@@ -151,22 +194,25 @@ export class EonetProvider implements EventSourceProvider {
     if (!record(data) || !Array.isArray(data.events)) throw new Error('NASA EONET returned an invalid event feed.');
     const fetchedAt = new Date().toISOString();
     const events: ClimateEvent[] = [];
+    const ids = new Set<string>();
     let skipped = 0;
     for (const raw of data.events) {
       const event = normalizeEonetEvent(raw, fetchedAt);
-      if (event && !events.some((item) => item.id === event.id)) events.push(event);
-      else skipped++;
+      if (event && !ids.has(event.id)) {
+        events.push(event);
+        ids.add(event.id);
+      } else skipped++;
     }
     events.sort((a, b) => b.time.lastObservedAt.localeCompare(a.time.lastObservedAt));
     return { events, skipped };
   }
 
-  async fetchEvent(externalId: string, signal?: AbortSignal): Promise<ClimateEvent | null> {
-    if (!/^EONET_[\w-]+$/.test(externalId)) return null;
-    const data = await this.request(new URL(`${API}/events/${encodeURIComponent(externalId)}`), signal);
-    if (data === null) return null;
+  async fetchEvent(id: string, signal?: AbortSignal): Promise<ClimateEvent | null> {
+    if (!externalId(id)) return null;
+    const data = await this.request(new URL(`${API}/events/${encodeURIComponent(id)}`), signal, true);
+    if (data === undefined) return null;
     const event = normalizeEonetEvent(data, new Date().toISOString());
-    if (!event || event.provenance.externalId !== externalId) throw new Error('NASA EONET returned an invalid event record.');
+    if (!event || event.provenance.externalId !== id) throw new Error('NASA EONET returned an invalid event record.');
     return event;
   }
 }
