@@ -87,6 +87,21 @@ Prompt:
 
 Early development / MVP.
 
+## Development checks
+
+Use Node.js 24 and the pnpm version specified in `package.json`.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm build
+```
+
+ESLint uses the recommended JavaScript, TypeScript, Astro, React, and React Hooks
+rule sets. Generated files are excluded, and lint warnings fail the check.
+
+GitHub Actions runs lint and build on pushes and pull requests.
+
 ## License
 
 MIT License. See `LICENSE`.
