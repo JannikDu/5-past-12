@@ -19,7 +19,7 @@ export const demoEvents: ClimateEvent[] = fixtures.map(([id, category, label, co
   const time = '2026-10-01T00:00:00.000Z';
   const geometry = { type: 'Point' as const, coordinates };
   return {
-    id: `demo:${id}`, title: `${category} · ${label} (demo)`, categories: [category],
+    id: `demo:${id}`, title: `${category} - ${label} (fictional demo)`, categories: [category],
     summary: 'Fictional event for exploring the prototype. This is not a report of an actual event.',
     location: { label, geometry, marker: coordinates },
     time: { firstObservedAt: time, lastObservedAt: time, closedAt: null },
