@@ -1,0 +1,15 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import EventDetail from '../../components/EventDetail';
+import '../../styles/event-detail.css';
+---
+
+<Layout title="Event detail | 5 Past 12">
+  <EventDetail client:load />
+  <noscript>
+    <p class="event-detail-noscript">
+      JavaScript is needed to read the event ID and load this report.
+      Enable JavaScript and reload, or <a href="/">return to the globe</a>.
+    </p>
+  </noscript>
+</Layout>
