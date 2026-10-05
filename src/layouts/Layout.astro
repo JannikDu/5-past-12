@@ -1,0 +1,26 @@
+---
+import '../styles/global.css';
+
+interface Props { title?: string }
+const { title = '5 Past 12 — A planet in perspective' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1218" />
+    <meta name="description" content="Explore recent natural event reports around the globe and inspect the evidence with 5 Past 12." />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="5 Past 12 — home"><span class="brand-clock" aria-hidden="true"></span><span>5 Past 12<span class="brand-period">.</span></span></a>
+      <span class="header-caption">Our world. In focus.</span>
+      <span class="prototype-badge">An open-source prototype</span>
+    </header>
+    <main id="main-content"><slot /></main>
+    <footer class="site-footer"><span>5 Past 12 · A public-interest project</span><span>Follow the sources. Understand the evidence.</span></footer>
+  </body>
+</html>
