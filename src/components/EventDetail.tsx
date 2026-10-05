@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { findEvent } from '../data/events.ts';
+import { eventProviders, findEvent } from '../data/events.ts';
 import {
-  DataKind, SourceKind,
+  DataKind, SourceKind, parseEventId,
   type ClimateEvent, type EventSource,
 } from '../domain/climate-event.ts';
 
@@ -37,7 +37,9 @@ async function resolveDetail(signal: AbortSignal): Promise<DetailState> {
   const ids = new URLSearchParams(window.location.search).getAll('id');
   if (!ids.length || (ids.length === 1 && !ids[0].trim())) return { kind: 'missing' };
   const id = ids[0];
-  if (ids.length !== 1 || !/^(?:demo:[a-z0-9]+(?:-[a-z0-9]+)*|eonet:EONET_[\w-]+)$/.test(id)) {
+  const parsed = parseEventId(id);
+  if (ids.length !== 1 || !parsed
+    || (parsed.provider !== 'demo' && !eventProviders.has(parsed.provider))) {
     return { kind: 'invalid' };
   }
   const event = await findEvent(id, signal);
@@ -53,7 +55,8 @@ function Report({ event }: { event: ClimateEvent }) {
     return source ? [{ reference, source }] : [];
   });
   const magnitudes = event.observations.flatMap(({ time, magnitude }) =>
-    magnitude ? [{ time, magnitude }] : []);
+    magnitude ? [{ id: JSON.stringify([time, magnitude]), time, magnitude }] : []);
+  const uniqueMagnitudes = [...new Map(magnitudes.map((item) => [item.id, item])).values()];
   const [longitude, latitude] = event.location.marker;
 
   return (
@@ -87,8 +90,8 @@ function Report({ event }: { event: ClimateEvent }) {
             <div><dt>Record status</dt><dd>{event.status}{event.time.closedAt && <span className="ed-note">Provider closure: <Timestamp value={event.time.closedAt} /></span>}</dd></div>
             <div><dt>Severity</dt><dd>{event.severity}<span className="ed-note">No severity is inferred from category or magnitude.</span></dd></div>
             <div className="ed-metadata-wide"><dt>Reported magnitude · raw</dt><dd>
-              {magnitudes.length ? <ul className="ed-magnitudes">{magnitudes.map((observation) => (
-                <li key={observation.time}>
+              {uniqueMagnitudes.length ? <ul className="ed-magnitudes">{uniqueMagnitudes.map((observation) => (
+                <li key={observation.id}>
                   <strong>{observation.magnitude.value}{observation.magnitude.unit ? ` ${observation.magnitude.unit}` : ''}</strong>
                   {observation.magnitude.description && <span> · {observation.magnitude.description}</span>}
                   <span className="ed-note"><Timestamp value={observation.time} /></span>

@@ -5,6 +5,7 @@ export enum EventCategory {
   Flood = 'Flood',
   Drought = 'Drought',
   Heat = 'Extreme heat',
+  Temperature = 'Temperature extremes',
   Ice = 'Sea and lake ice',
   Volcano = 'Volcano',
   Earthquake = 'Earthquake',
@@ -223,7 +224,6 @@ export function isClimateEvent(value: unknown): value is ClimateEvent {
     || observations.some((item, index) => index > 0 && item.time < observations[index - 1].time)
     || !sameGeometry(location.geometry, latest.geometry) || !samePosition(location.marker, marker)
     || (value.status === EventStatus.Closed) !== (time.closedAt !== null)
-    || (typeof time.closedAt === 'string' && time.closedAt < time.lastObservedAt)
     || new Set(sources.map((item) => item.id)).size !== sources.length) return false;
 
   const scientificSourceIds = new Set(sources.filter((item) => item.kind === SourceKind.ScientificStudy).map((item) => item.id));

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EonetProvider, normalizeEonetEvent } from '../src/data/providers/eonet.ts';
 import {
-  DataKind, EventCategory, EventStatus, EvidenceStatus, Severity, SourceKind,
+  DataKind, EventCategory, EventStatus, EvidenceStatus, Severity, SourceKind, isClimateEvent,
 } from '../src/domain/climate-event.ts';
 
 const fetchedAt = '2026-01-10T12:00:00.000Z';
@@ -21,6 +21,25 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 });
 const mockFetch = (handler: (url: URL, init: RequestInit) => Response | Promise<Response>): typeof fetch =>
   async (input, init) => handler(new URL(String(input)), init ?? {});
+
+test('feed normalization obeys the same domain contract as direct detail lookup', () => {
+  const event = normalizeEonetEvent(fixture({ closed: '2026-01-04T00:00:00Z' }), fetchedAt);
+  assert.ok(event);
+  assert.ok(isClimateEvent(event));
+  // Closure is provider metadata and may precede a later reported observation.
+  assert.equal(event.status, EventStatus.Closed);
+  const degenerate = fixture({ geometry: [{
+    date: '2026-01-05T00:00:00Z', type: 'Polygon',
+    coordinates: [[[10, 20], [10, 20], [10, 20], [10, 20]]],
+  }] });
+  assert.equal(normalizeEonetEvent(degenerate, fetchedAt), null);
+});
+
+test('temperature extremes are not classified as exclusively extreme heat', () => {
+  const event = normalizeEonetEvent(fixture({ categories: [{ id: 'tempExtremes' }] }), fetchedAt);
+  assert.ok(event);
+  assert.deepEqual(event.categories, [EventCategory.Temperature]);
+});
 
 test('normalizes provider identity and keeps event reports separate from attribution', () => {
   const raw = fixture({ description: ' A reported fire. ', severity: 'Extreme',
@@ -133,7 +152,7 @@ test('validates unknown JSON and required event fields', () => {
 test('maps v3 category IDs, deduplicates categories and handles unknown IDs safely', () => {
   const mappings: [string, EventCategory][] = [
     ['wildfires', EventCategory.Wildfire], ['severeStorms', EventCategory.Storm],
-    ['floods', EventCategory.Flood], ['drought', EventCategory.Drought], ['tempExtremes', EventCategory.Heat],
+    ['floods', EventCategory.Flood], ['drought', EventCategory.Drought], ['tempExtremes', EventCategory.Temperature],
     ['seaLakeIce', EventCategory.Ice], ['volcanoes', EventCategory.Volcano], ['earthquakes', EventCategory.Earthquake],
     ['landslides', EventCategory.Landslide], ['dustHaze', EventCategory.Dust], ['snow', EventCategory.Snow],
     ['manmade', EventCategory.Other], ['waterColor', EventCategory.Other], ['futureCategory', EventCategory.Other],

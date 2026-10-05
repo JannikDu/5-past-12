@@ -1,7 +1,7 @@
 import {
   DataKind, EventCategory, EventStatus, EvidenceStatus, Severity, SourceKind,
   type ClimateEvent, type EventGeometry, type EventObservation, type EventSource,
-  type Position,
+  type Position, isClimateEvent,
 } from '../../domain/climate-event.ts';
 import type { EventBatch, EventQuery, EventSourceProvider } from './event-source.ts';
 
@@ -11,7 +11,7 @@ const categories: Record<string, EventCategory> = {
   severeStorms: EventCategory.Storm,
   floods: EventCategory.Flood,
   drought: EventCategory.Drought,
-  tempExtremes: EventCategory.Heat,
+  tempExtremes: EventCategory.Temperature,
   seaLakeIce: EventCategory.Ice,
   volcanoes: EventCategory.Volcano,
   earthquakes: EventCategory.Earthquake,
@@ -134,7 +134,7 @@ export function normalizeEonetEvent(raw: unknown, fetchedAt: string): ClimateEve
       sources.push({ id: `${source.id.trim()}:${sources.length}`, name: source.id.trim(), url, kind: SourceKind.EventReport });
     }
   }
-  return {
+  const event: ClimateEvent = {
     id: `eonet:${raw.id}`, title: raw.title.trim(),
     categories: [...normalizedCategories],
     summary: nonempty(raw.description) ? raw.description.trim() : null,
@@ -147,6 +147,8 @@ export function normalizeEonetEvent(raw: unknown, fetchedAt: string): ClimateEve
     evidence: { status: EvidenceStatus.Unverified, references: [] },
     provenance: { provider: 'eonet', externalId: raw.id, fetchedAt: fetchedTime, dataKind: DataKind.Reported },
   };
+  // Feed and direct detail lookups must obey exactly the same domain contract.
+  return isClimateEvent(event) ? event : null;
 }
 
 export class EonetProvider implements EventSourceProvider {

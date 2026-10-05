@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
@@ -124,7 +125,8 @@ test('time bounds describe ordered observations and provider-reported closure', 
   event.time.closedAt = later;
   assert.ok(isClimateEvent(event));
   event.time.closedAt = first.time;
-  assert.equal(isClimateEvent(event), false);
+  // Closure is curation metadata: later observations can revise a closed record.
+  assert.ok(isClimateEvent(event));
   event.time.closedAt = null;
   assert.equal(isClimateEvent(event), false);
   event.status = EventStatus.Open;
