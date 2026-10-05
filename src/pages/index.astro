@@ -1,17 +1,6 @@
 ---
 import App from '../components/App';
+import Layout from '../layouts/Layout.astro';
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Astro + React + TypeScript</title>
-  </head>
-  <body>
-    <main>
-      <App />
-    </main>
-  </body>
-</html>
+<Layout><App client:load /></Layout>
