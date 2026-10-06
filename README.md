@@ -101,6 +101,8 @@ pnpm dev
   (up to 60 records, including open and closed records).
 - Choose **Demo** for eight explicitly fictional events; live failures never
   silently substitute fixtures.
+- The monochrome interface pairs a standalone globe with an animated feed total,
+  search, and event-type filters. Reduced-motion preferences are respected.
 - Drag the globe or use arrow keys and rotation buttons. Hover, focus, or click a
   marker for its compact card. The list also exposes events on the far hemisphere.
 - Open **Explore event** for Summary, Cause / Climate Connection, Evidence,
@@ -116,7 +118,8 @@ The browser fetches the public API; JavaScript and access to NASA are required f
 live data. No API key, database, or server adapter is required for this slice.
 Loading, retry, empty, and failure states are explicit. Malformed or duplicate
 records are skipped with a visible count. Invalid coordinates are rejected rather
-than guessed or silently swapped. Geography is illustrative; polygon markers use
+than guessed or silently swapped. Globe geography is sampled from bundled,
+public-domain Natural Earth land data and remains illustrative; polygon markers use
 the first vertex of the latest reported boundary, not its centroid.
 
 ## Code map

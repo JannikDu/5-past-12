@@ -1,15 +1,23 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { ClimateEvent } from '../domain/climate-event.ts';
 import { demoEvents } from '../data/demo-events.ts';
 import { eventDetailUrl, eventProviders } from '../data/events.ts';
-import { categoryColor, constrainView, INITIAL_VIEW } from '../lib/globe.ts';
+import { constrainView, INITIAL_VIEW } from '../lib/globe.ts';
 import EventCard, { observationDate } from './EventCard.tsx';
+import EventCounter from './EventCounter.tsx';
+import EventTypeFilter from './EventTypeFilter.tsx';
 import Globe from './Globe.tsx';
+import Icon from './Icon.tsx';
 
 type Feed =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'ready'; events: ClimateEvent[]; skipped: number };
+
+function coordinates(event: ClimateEvent) {
+  const [longitude, latitude] = event.location.marker;
+  return `${Math.abs(latitude).toFixed(1)}° ${latitude < 0 ? 'S' : 'N'} / ${Math.abs(longitude).toFixed(1)}° ${longitude < 0 ? 'W' : 'E'}`;
+}
 
 export default function App() {
   const [mode, setMode] = useState<'live' | 'demo'>('live');
@@ -18,6 +26,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState(INITIAL_VIEW);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('all');
 
   useEffect(() => {
     if (mode !== 'live') return;
@@ -40,15 +49,16 @@ export default function App() {
   const events = mode === 'demo' ? demoEvents : feed.status === 'ready' ? feed.events : [];
   const query = search.trim().toLowerCase();
   const filteredEvents = events.filter((event) =>
-    `${event.title} ${event.location.label ?? ''} ${event.categories.join(' ')}`.toLowerCase().includes(query));
+    (category === 'all' || event.categories.some((item) => item === category))
+    && `${event.title} ${event.location.label ?? ''} ${event.categories.join(' ')}`.toLowerCase().includes(query));
   const selected = filteredEvents.find((event) => event.id === selectedId);
-  const categories = [...new Set(events.flatMap((event) => event.categories))];
+  const categories = [...new Set(events.flatMap((event) => event.categories))].sort();
   const isLoading = mode === 'live' && feed.status === 'loading';
   const failed = mode === 'live' && feed.status === 'error';
 
   function changeMode(next: 'live' | 'demo') {
     if (mode === next) return;
-    setMode(next); setSelectedId(null); setSearch('');
+    setMode(next); setSelectedId(null); setSearch(''); setCategory('all');
     if (next === 'live') setFeed({ status: 'loading' });
   }
 
@@ -59,80 +69,95 @@ export default function App() {
   function focusEvent(event: ClimateEvent) {
     setSelectedId(event.id);
     setView(constrainView({ longitude: event.location.marker[0], latitude: event.location.marker[1] }));
+    document.getElementById('planet')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start',
+    });
   }
 
-  return <div className="dashboard">
-    <section className="intro" aria-labelledby="page-title">
-      <div>
-        <p className="eyebrow"><span className="signal-dot" /> A planet in perspective</p>
-        <h1 id="page-title">One planet.<br /><span>See what’s happening.</span></h1>
-        <p className="intro-description">Explore recent natural events around the world.<br className="desktop-break" /> Follow the reports. Look for the evidence.</p>
-      </div>
-      <div className="feed-options">
-        <div className="mode-switch" role="group" aria-label="Event data source">
-          <button aria-pressed={mode === 'live'} onClick={() => changeMode('live')}><span className="signal-dot" />Live reports</button>
-          <button aria-pressed={mode === 'demo'} onClick={() => changeMode('demo')}>Demo</button>
-        </div>
-        <p className="muted">{mode === 'live' ? 'NASA EONET · Last 30 days · Up to 60 events' : '8 fictional events · For exploring the prototype'}</p>
-      </div>
-    </section>
+  function clearFilters() { setSearch(''); setCategory('all'); }
 
-    <div className={`feed-status${mode === 'demo' ? ' demo-status' : ''}`} role="status" aria-live="polite">
-      {mode === 'demo' ? <><strong>Demo mode</strong><span>These events are fictional and have no attribution evidence.</span></>
-        : isLoading ? <><span className="loading-dot" /><span>Loading recent reports from NASA EONET…</span></>
-        : failed ? <><span className="status-icon">!</span><span>Live reports unavailable. Retry below or select Demo to explore fictional events.</span></>
-        : <><span className="signal-dot" /><span>{events.length} reports loaded · {feed.status === 'ready' ? feed.skipped : 0} invalid or duplicate records skipped</span></>}
-    </div>
+  return <div className="observatory">
+    <section id="planet" className="planet-hero" aria-labelledby="page-title">
+      <div className="hero-intro">
+        <p className="eyebrow">A planet in perspective</p>
+        <h1 id="page-title">5 past <span>12<span className="title-period" aria-hidden="true">.</span></span></h1>
+        <p className="hero-slogan">The crisis isn’t coming.<br />It’s happening now.</p>
+        <a className="explore-link" href="#observations">Explore the events <Icon name="arrow-down" /></a>
+      </div>
 
-    <div className="dashboard-grid">
-      <section className="globe-panel panel" aria-labelledby="globe-heading" aria-busy={isLoading}>
-        <div className="panel-heading">
-          <div><p className="eyebrow">Global perspective</p><h2 id="globe-heading">The event explorer</h2></div>
-          <span className="badge">{mode === 'demo' ? 'Demo data' : 'Natural events'}</span>
-        </div>
+      <div className="hero-globe" aria-busy={isLoading}>
         <Globe events={filteredEvents} selectedId={selected?.id ?? null} view={view} onRotate={setView}
           onSelect={(event) => setSelectedId(event?.id ?? null)} />
-        <div className="category-legend" aria-label="Event categories; colors do not indicate severity">
-          {categories.length > 0 ? categories.map((category) => <span key={category}>
-            <span className="category-dot" style={{ backgroundColor: categoryColor(category) }} />{category}
-          </span>) : <span>Markers will appear here when events are loaded.</span>}
-        </div>
-        <p className="map-note muted">Approximate geography · Markers show the latest reported location · Colors indicate event type</p>
-      </section>
+      </div>
 
-      <aside className="event-sidebar" aria-label="Explore event reports">
-        {selected ? <EventCard event={selected} onClose={() => setSelectedId(null)} />
-          : <div className="selection-hint panel"><span className="selection-symbol" aria-hidden="true">◎</span>
-            <div><h2>Start with a place.</h2><p className="muted">Hover, focus, or tap a marker. Select an event below to bring it into view.</p></div>
-          </div>}
-        <section className="event-list-panel panel" aria-labelledby="events-heading" aria-busy={isLoading}>
-          <div className="panel-heading"><div><p className="eyebrow">Both hemispheres</p><h2 id="events-heading">All events <span className="event-count">{events.length}</span></h2></div>
-            {mode === 'live' && feed.status === 'ready' && <button className="text-button" onClick={retry}>Refresh</button>}
-          </div>
-          <label className="search-label" htmlFor="event-search">Search by event, place, or type</label>
-          <div className="search-field"><span aria-hidden="true">⌕</span><input id="event-search" type="search"
-            placeholder="Find an event…" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-          {isLoading ? <div className="status"><span className="loading-dot" /><h3>Connecting to NASA EONET</h3><p>Recent reports will appear here.</p></div>
-            : failed ? <div className="status status-error" role="alert"><h3>Couldn’t load live reports</h3>
-              <p>{feed.status === 'error' ? feed.message : ''}</p><button className="button" onClick={retry}>Retry live feed</button></div>
-            : events.length === 0 ? <div className="status status-empty"><h3>No recent events returned</h3><p>NASA EONET returned no events for this 30-day window.</p><button className="button button-secondary" onClick={retry}>Check again</button></div>
-            : filteredEvents.length === 0 ? <div className="status status-empty" role="status"><h3>No matching events</h3><p>Try another place or event type.</p><button className="text-button" onClick={() => setSearch('')}>Clear search</button></div>
-            : <><p className="list-summary muted" role="status">{filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'}{query ? ' matching your search' : ' · Latest observations first'}</p>
-              <ul className="event-list">{filteredEvents.map((event) => <li key={event.id} className={event.id === selected?.id ? 'selected-row' : ''}>
-                <button className="event-select" onClick={() => focusEvent(event)} aria-pressed={event.id === selected?.id}>
-                  <span className="list-marker" style={{ backgroundColor: categoryColor(event.categories[0]) }} />
-                  <span className="event-row-content"><span className="event-row-title">{event.title}</span>
-                    <span className="event-row-meta">{event.categories[0]} · {observationDate(event.time.lastObservedAt)}</span></span>
-                </button><a className="row-detail-link" href={eventDetailUrl(event)} aria-label={`Open details for ${event.title}`}>↗</a>
-              </li>)}</ul></>}
-        </section>
+      <aside className={`hero-aside${selected ? ' has-selection' : ''}`} aria-label="Event feed and selected report">
+        <div className="live-data-block">
+          <p className="eyebrow feed-label"><span className={`signal-dot${isLoading ? ' loading-dot' : ''}`} />
+            {mode === 'demo' ? 'Demo observations' : failed ? 'Connection interrupted' : 'Live observations'}</p>
+          <EventCounter count={events.length} loading={isLoading} unavailable={failed} />
+          <p className="feed-source">{mode === 'demo' ? '8 fictional events' : 'NASA EONET'}<br />
+            {mode === 'demo' ? 'For exploring the prototype' : 'Last 30 days · Up to 60 reports'}</p>
+          {failed && <button className="text-button" onClick={retry}>Reconnect <Icon name="reset" /></button>}
+        </div>
+        {selected && <EventCard event={selected} onClose={() => setSelectedId(null)} />}
       </aside>
+    </section>
+
+    <div className="perspective-caption">
+      <span><span className="caption-index">01 /</span> A global view. A closer look.</span>
+      <span>Natural event reports <span className="caption-separator">/</span> Climate attribution unassessed</span>
     </div>
 
-    <section className="evidence-banner panel" aria-labelledby="evidence-heading">
-      <span className="evidence-symbol" aria-hidden="true">↳</span><div><h2 id="evidence-heading">A report is the beginning. Evidence is the next step.</h2>
-        <p>Natural event reports do not establish a connection to climate change. This prototype shows event records and their sources; climate attribution has not been assessed.</p></div>
-      <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noreferrer">About NASA EONET <span aria-hidden="true">↗</span><span className="sr-only"> (opens in a new tab)</span></a>
+    <section id="observations" className="observations" aria-labelledby="events-heading" aria-busy={isLoading}>
+      <div className="observations-heading">
+        <div><p className="eyebrow">The observation index</p><h2 id="events-heading">Explore what’s happening<span className="heading-period">.</span></h2></div>
+        <div className="feed-options">
+          <div className="mode-switch" role="group" aria-label="Event data source">
+            <button aria-pressed={mode === 'live'} onClick={() => changeMode('live')}>Live reports</button>
+            <button aria-pressed={mode === 'demo'} onClick={() => changeMode('demo')}>Demo</button>
+          </div>
+          {mode === 'live' && feed.status === 'ready' && <button className="icon-button" aria-label="Refresh live reports" onClick={retry}><Icon name="reset" /></button>}
+        </div>
+      </div>
+
+      <div className="filter-bar">
+        <div className="search-field"><Icon name="search" /><label className="sr-only" htmlFor="event-search">Search by event, place, or type</label>
+          <input id="event-search" type="search" placeholder="Search an event, place, or type" value={search}
+            onChange={(event) => setSearch(event.target.value)} />
+        </div>
+        <EventTypeFilter value={category} categories={categories} onChange={setCategory} />
+        <p className="list-summary" role="status">{isLoading ? 'Connecting to the feed…' : failed ? 'Feed unavailable' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'event' : 'events'}${query || category !== 'all' ? ' in this view' : ' · Latest observations first'}`}</p>
+      </div>
+
+      {mode === 'demo' && <p className="feed-notice" role="status"><span className="signal-dot" />Demo mode. All events below are fictional and have no attribution evidence.</p>}
+      {mode === 'live' && feed.status === 'ready' && feed.skipped > 0 && <p className="feed-notice" role="status">{feed.skipped} invalid or duplicate records skipped.</p>}
+
+      {isLoading ? <div className="status"><span className="loading-dot" /><h3>Looking around the world.</h3><p>Connecting to recent reports from NASA EONET.</p></div>
+        : failed ? <div className="status" role="alert"><p className="eyebrow">Connection interrupted</p><h3>Live reports are temporarily unavailable.</h3>
+          <p>{feed.status === 'error' ? feed.message : ''}</p><button className="button" onClick={retry}>Retry live feed <Icon name="reset" /></button></div>
+        : events.length === 0 ? <div className="status"><h3>No recent events returned.</h3><p>NASA EONET returned no events for this 30-day window.</p><button className="button button-secondary" onClick={retry}>Check again <Icon name="reset" /></button></div>
+        : filteredEvents.length === 0 ? <div className="status" role="status"><h3>No events match this view.</h3><p>Try another place or event type.</p><button className="text-button" onClick={clearFilters}>Clear filters <Icon name="close" /></button></div>
+        : <>
+          <div className="event-table-heading" aria-hidden="true"><span>Event / Type</span><span>Reported location</span><span>Last observed · UTC</span><span /></div>
+          <ul className="event-list">{filteredEvents.map((event) => <li key={event.id} className={event.id === selected?.id ? 'selected-row' : ''}>
+            <button className="event-select" onClick={() => focusEvent(event)} aria-pressed={event.id === selected?.id}>
+              <span className="event-row-content"><span className="event-row-title"><span className="list-marker" />{event.title}</span>
+                <span className="event-row-category">{event.categories.join(' / ')}</span></span>
+              <span className="event-row-location">{event.location.label ?? coordinates(event)}</span>
+              <time className="event-row-date" dateTime={event.time.lastObservedAt}>{observationDate(event.time.lastObservedAt)}</time>
+            </button><a className="row-detail-link" href={eventDetailUrl(event)} aria-label={`Open details for ${event.title}`}><Icon name="arrow-up-right" /></a>
+          </li>)}</ul>
+        </>}
+    </section>
+
+    <section id="evidence" className="evidence-section" aria-labelledby="evidence-heading">
+      <p className="eyebrow"><span className="caption-index">02 /</span> Our approach</p>
+      <div className="evidence-content"><h2 id="evidence-heading">A report is a starting point.<br /><span>Evidence comes next.</span></h2>
+        <div><p>Every event has a story. Understanding its connection to climate change takes scientific evidence. Explore the records, follow their sources, and see what is known.</p>
+          <p className="evidence-footnote">This prototype displays natural event reports. Event-specific climate attribution has not been assessed.</p>
+          <a className="inline-link" href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noreferrer">About NASA EONET <Icon name="arrow-up-right" /><span className="sr-only"> (opens in a new tab)</span></a>
+        </div>
+      </div>
     </section>
   </div>;
 }
