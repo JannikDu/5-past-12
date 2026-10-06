@@ -7,7 +7,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['dist/**', '.astro/**']),
+  globalIgnores(['dist/**', '.astro/**', '.devswarm-temp/**']),
   {
     files: ['**/*.{js,mjs,cjs,jsx,ts,tsx,astro}'],
     extends: [js.configs.recommended],
