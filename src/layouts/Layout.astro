@@ -2,25 +2,26 @@
 import '../styles/global.css';
 
 interface Props { title?: string }
-const { title = '5 Past 12 — A planet in perspective' } = Astro.props;
+const { title = '5 past 12 — A planet in perspective' } = Astro.props;
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b1218" />
+    <meta name="theme-color" content="#f7f7f2" />
     <meta name="description" content="Explore recent natural event reports around the globe and inspect the evidence with 5 Past 12." />
     <title>{title}</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
-      <a class="brand" href="/" aria-label="5 Past 12 — home"><span class="brand-clock" aria-hidden="true"></span><span>5 Past 12<span class="brand-period">.</span></span></a>
-      <span class="header-caption">Our world. In focus.</span>
-      <span class="prototype-badge">An open-source prototype</span>
+      <a class="brand" href="/" aria-label="5 past 12 — home"><span class="brand-clock" aria-hidden="true"></span><span>5 past 12</span></a>
+      <nav class="header-nav" aria-label="Main navigation"><a href="/#planet">The planet</a><a href="/#observations">Events</a><a href="/#evidence">Our approach</a></nav>
+      <span class="header-caption">An independent climate observatory</span>
     </header>
     <main id="main-content"><slot /></main>
-    <footer class="site-footer"><span>5 Past 12 · A public-interest project</span><span>Follow the sources. Understand the evidence.</span></footer>
+    <footer class="site-footer"><a class="footer-brand" href="/">5 past 12</a><span>A public-interest project. Open source, open perspective.</span><span>Follow the sources. Understand the evidence.</span></footer>
   </body>
 </html>

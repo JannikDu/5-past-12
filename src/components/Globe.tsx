@@ -1,8 +1,9 @@
 ﻿import { useId, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import type { ClimateEvent } from '../domain/climate-event.ts';
 import {
-  categoryColor, constrainView, graticule, INITIAL_VIEW, landDots, project, type GlobeView,
+  constrainView, graticule, INITIAL_VIEW, landDots, project, type GlobeView,
 } from '../lib/globe.ts';
+import Icon from './Icon.tsx';
 
 interface Props {
   events: readonly ClimateEvent[];
@@ -39,7 +40,8 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
   function startDrag(event: PointerEvent<SVGSVGElement>) {
     if (event.button !== 0 || dragRef.current
       || (event.target as Element).closest('[data-event-marker]')) return;
-    event.currentTarget.focus();
+    event.preventDefault();
+    event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, view,
       scale: 520 / event.currentTarget.getBoundingClientRect().width };
@@ -64,30 +66,27 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
     <svg className="globe" viewBox="0 0 520 520" role="group" tabIndex={0}
       aria-label="Interactive event globe" aria-describedby={`${id}-help`}
       onKeyDown={onKeyDown} onPointerDown={startDrag} onPointerMove={moveDrag}
+      onDragStart={(event) => event.preventDefault()}
       onPointerUp={endDrag} onPointerCancel={endDrag} onLostPointerCapture={() => { dragRef.current = null; }}>
       <defs>
-        <radialGradient id={`${id}-ocean`} cx="36%" cy="28%" r="80%">
-          <stop offset="0" stopColor="#1d3944" /><stop offset="0.65" stopColor="#102831" />
-          <stop offset="1" stopColor="#08141c" />
-        </radialGradient>
-        <radialGradient id={`${id}-halo`}>
-          <stop offset="80%" stopColor="#79dcbb" stopOpacity="0" />
-          <stop offset="89%" stopColor="#79dcbb" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#79dcbb" stopOpacity="0" />
+        <radialGradient id={`${id}-ocean`} cx="36%" cy="28%" r="75%">
+          <stop offset="0" stopColor="#ffffff" /><stop offset="0.6" stopColor="#f0f1ea" />
+          <stop offset="1" stopColor="#d7dad1" />
         </radialGradient>
       </defs>
       <g aria-hidden="true" pointerEvents="none">
-        <circle cx="260" cy="260" r="253" fill={`url(#${id}-halo)`} />
-        <circle cx="260" cy="260" r="232" className="orbit" />
-        <circle cx="260" cy="260" r="220" fill={`url(#${id}-ocean)`} stroke="#567d83" strokeOpacity="0.55" />
+        <circle cx="260" cy="260" r="237" className="orbit" />
+        <circle cx="260" cy="260" r="220" fill={`url(#${id}-ocean)`} stroke="#c6cac0" strokeWidth="0.5" />
         {graticule(view).map(({ id, path }) => <path key={id} d={path} className="graticule" />)}
         {landDots.map((position) => {
           const point = project(position, view);
-          return point.visible ? <circle key={position.join(',')} cx={point.x} cy={point.y} r="1.7"
-            fill="#97c6b9" opacity={0.3 + point.depth * 0.43} /> : null;
+          // Stable precision avoids server/browser trigonometry differences during hydration.
+          return point.visible ? <circle key={position.join(',')} cx={point.x.toFixed(2)} cy={point.y.toFixed(2)}
+            r={(0.55 + point.depth * 0.65).toFixed(2)} fill="#626a58" opacity={(0.3 + point.depth * 0.5).toFixed(2)} /> : null;
         })}
-        <text x="260" y="17" textAnchor="middle" className="globe-label">N</text>
-        <text x="260" y="511" textAnchor="middle" className="globe-label">S</text>
+        <path d="M260 20v8M260 492v8M20 260h8M492 260h8" className="axis-tick" />
+        <text x="260" y="12" textAnchor="middle" className="globe-label">N</text>
+        <text x="260" y="516" textAnchor="middle" className="globe-label">S</text>
       </g>
       {visibleEvents.map(({ event, point }) => <g key={event.id} data-event-marker="true"
         className={`event-marker${selectedId === event.id ? ' is-selected' : ''}`}
@@ -101,20 +100,20 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
           } else if (keyEvent.key === 'Escape') { onSelect(null); }
         }}>
         <title>{event.title}</title>
-        <circle r="13" fill="transparent" />
-        <circle className="marker-ring" r="9" fill="none" stroke={categoryColor(event.categories[0])} strokeOpacity="0.4" />
-        <circle r="4.5" fill={categoryColor(event.categories[0])} stroke="#0b171d" strokeWidth="1.5" />
+        <circle className="marker-target" r="14" fill="transparent" />
+        <circle className="marker-ring" r="9" fill="none" />
+        <circle className="marker-core" r="4" strokeWidth="1.5" />
       </g>)}
     </svg>
     <div className="globe-controls" role="group" aria-label="Rotate globe">
-      <button className="icon-button" aria-label="Rotate west" onClick={() => rotate(-25, 0)}>&#8592;</button>
-      <button className="icon-button" aria-label="Rotate north" onClick={() => rotate(0, 15)}>&#8593;</button>
-      <button className="button button-secondary reset-view" onClick={() => onRotate(INITIAL_VIEW)}>Reset view</button>
-      <button className="icon-button" aria-label="Rotate south" onClick={() => rotate(0, -15)}>&#8595;</button>
-      <button className="icon-button" aria-label="Rotate east" onClick={() => rotate(25, 0)}>&#8594;</button>
+      <button className="icon-button" aria-label="Rotate west" onClick={() => rotate(-25, 0)}><Icon name="arrow-left" /></button>
+      <button className="icon-button" aria-label="Rotate north" onClick={() => rotate(0, 15)}><Icon name="arrow-up" /></button>
+      <button className="text-button reset-view" onClick={() => onRotate(INITIAL_VIEW)}>Reset view</button>
+      <button className="icon-button" aria-label="Rotate south" onClick={() => rotate(0, -15)}><Icon name="arrow-down" /></button>
+      <button className="icon-button" aria-label="Rotate east" onClick={() => rotate(25, 0)}><Icon name="arrow-right" /></button>
     </div>
-    <p className="globe-help muted" id={`${id}-help`}>Drag to explore · Arrow keys to rotate · Home to reset</p>
-    <p className="hemisphere-note">{visibleEvents.length} of {events.length} markers in view. Explore every event in the list.</p>
+    <p className="globe-help" id={`${id}-help`}>Drag to explore <span aria-hidden="true">·</span> Arrow keys to rotate<span className="sr-only">. Home to reset. Press Escape to close a selection.</span></p>
+    <p className="hemisphere-note">{visibleEvents.length} / {events.length} markers in view<span className="sr-only">. Explore every event in the list below.</span></p>
   </div>;
 }
 
