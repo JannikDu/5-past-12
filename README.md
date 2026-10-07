@@ -150,12 +150,20 @@ pnpm build
 ESLint uses the recommended JavaScript, TypeScript, Astro, React, and React Hooks
 rule sets. Generated files are excluded, and lint warnings fail the check.
 
-GitHub Actions runs lint and build on pushes and pull requests.
+GitHub Actions runs lint, type checks, tests, the frontend build and an evidence
+Worker dry-run bundle on pushes and pull requests. It does not deploy.
 
 `pnpm test` uses Node's native test runner with TypeScript transformation, covering
 provider validation, cancellation, IDs, provenance, and evidence separation without
 external network requests. The Node transformation flag can emit an experimental
 warning on supported Node versions.
+
+## Evidence backend
+
+Climate Central and WWA evidence ingestion, hybrid retrieval, immutable citations,
+manual rebuilds, and a four-hour scheduled Worker are implemented separately from
+the frontend. Setup and commands: [evidence operating guide](docs/evidence.md).
+Executed checks and pending live acceptance: [implementation report](docs/evidence-implementation.md).
 
 ## License
 

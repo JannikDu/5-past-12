@@ -1,0 +1,59 @@
+[
+  {
+    "id": "spain-mediterranean-wildfire",
+    "text": "wildfire conditions in Spain and the Mediterranean",
+    "eventType": "Wildfire",
+    "region": "Spain",
+    "eventDate": "2026-08-15",
+    "expected": [
+      {
+        "url": "https://www.worldweatherattribution.org/climate-change-increases-likelihood-of-compounding-drivers-of-severe-wildfire-conditions-in-france-and-spain/",
+        "usefulPassage": "Analysis of heat and fire weather as compounding conditions in France and Spain."
+      },
+      {
+        "url": "https://www.worldweatherattribution.org/extreme-fire-weather-conditions-in-spain-and-portugal-now-common-due-to-climate-change/",
+        "usefulPassage": "Historical fire-weather trends and qualifications of the observation-based analysis.",
+        "metadataMismatch": "The publication region is Europe, rather than an exact Spain label."
+      }
+    ]
+  },
+  {
+    "id": "mediterranean-drought-context",
+    "text": "Mediterranean drought Sicily Sardinia temperature evapotranspiration observational model uncertainty",
+    "eventType": "Drought",
+    "region": "Mediterranean",
+    "expected": [
+      {
+        "url": "https://www.worldweatherattribution.org/climate-change-key-driver-of-extreme-drought-in-water-scarce-sicily-and-sardinia/",
+        "usefulPassage": "The roles of rainfall, temperature and evapotranspiration, with model/observation qualifications.",
+        "metadataMismatch": "A combined Europe, Mediterranean label does not receive an exact Mediterranean region bonus."
+      }
+    ]
+  },
+  {
+    "id": "historical-european-heat",
+    "text": "historical European heatwave observations models uncertainty France Spain June 2019",
+    "eventType": "Wildfire",
+    "region": "Spain",
+    "eventDate": "2026-10-06",
+    "expected": [
+      {
+        "url": "https://www.worldweatherattribution.org/human-contribution-to-record-breaking-june-2019-heatwave-in-france/",
+        "usefulPassage": "Observations and model uncertainty for the June 2019 European heatwave.",
+        "metadataMismatch": "Heatwave category, Europe region, and historical time differ from supplied hints."
+      }
+    ]
+  },
+  {
+    "id": "csi-heat-context",
+    "text": "California October heat wave Climate Shift Index human caused climate change forecast",
+    "eventType": "Extreme heat",
+    "region": "California",
+    "expected": [
+      {
+        "url": "https://www.climatecentral.org/climate-shift-index-alert#alert-5e7vhIXO8wh18mk5Axg7Q",
+        "usefulPassage": "The October 6, 2026 California heat alert with observation/forecast qualifications."
+      }
+    ]
+  }
+]

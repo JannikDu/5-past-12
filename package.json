@@ -13,17 +13,30 @@
     "lint": "eslint . --max-warnings 0",
     "check": "astro check",
     "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "test:unit": "node --experimental-transform-types --test tests/model.test.ts tests/eonet.test.ts tests/evidence.test.ts tests/evidence-services.test.ts tests/evidence-adapters.test.ts",
+    "test:integration": "node --experimental-transform-types --test tests/evidence-sql.test.ts tests/evidence-integration.test.ts tests/evidence-retrieval-sql.test.ts",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "evidence:ingest": "node --env-file-if-exists=.env --experimental-transform-types scripts/ingest-evidence.ts",
+    "evidence:check-embeddings": "node --env-file-if-exists=.env --experimental-transform-types scripts/check-embeddings.ts",
+    "evidence:rebuild": "node --env-file-if-exists=.env --experimental-transform-types scripts/rebuild-evidence.ts",
+    "evidence:evaluate": "node --env-file-if-exists=.env --experimental-transform-types scripts/evaluate-evidence.ts",
+    "evidence:worker:check": "wrangler deploy --config wrangler.evidence.jsonc --dry-run --outdir .devswarm-temp/evidence-worker"
   },
   "dependencies": {
     "@astrojs/react": "^7.0.0",
     "astro": "^7.3.5",
+    "fast-xml-parser": "5.11.2",
+    "fast-xml-validator": "1.4.2",
+    "linkedom": "0.18.13",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "supabase": "^2.119.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "0.0.9",
     "@eslint-react/eslint-plugin": "5.23.5",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.5",
@@ -34,6 +47,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.0",
+    "wrangler": "4.148.0"
   }
 }

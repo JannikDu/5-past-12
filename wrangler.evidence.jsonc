@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "five-past-twelve-evidence",
+  "main": "workers/evidence-ingestion.ts",
+  "compatibility_date": "2026-10-07",
+  "workers_dev": false,
+  "triggers": { "crons": ["0 */4 * * *"] },
+  "observability": { "enabled": true },
+  "vars": {
+    "FEATHERLESS_EMBEDDING_MODEL": "Qwen/Qwen3-Embedding-4B",
+    "EVIDENCE_MAX_ITEMS_PER_PROVIDER": "20",
+    "EVIDENCE_MAX_PAGES_PER_PROVIDER": "10"
+  }
+}
