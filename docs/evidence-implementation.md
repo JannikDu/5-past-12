@@ -37,7 +37,7 @@ not establish complete historical coverage or embedding quality.
 Offline unit and local pgvector tests verify the ingestion/retrieval/rebuild
 contracts, including both providers ingested twice without new embeddings or
 current/archive records. The Worker dry-run bundles without deployment.
-Final checks passed: lint, type checking (zero diagnostics), **75 tests**,
+Final checks passed: lint, type checking (zero diagnostics), **105 tests**,
 frontend build, Worker dry-run bundle, and strict OpenSpec validation. The public
 build contains no privileged client or secret-variable references. The original
 baseline migration and Supabase configuration remain unchanged.
@@ -94,6 +94,17 @@ new embeddings/records on repeated ingestion and unchanged weekly rechecks,
 including article modification metadata absent from RSS. Retrieval hints remain
 nonexcluding, without a cosine cutoff. Credentials are runtime configuration;
 official source URLs and the required schedule/dimension are intentional constants.
+
+## Additional focused test coverage
+
+The follow-up adds 30 unit/integration cases, with no production behavior changes
+or E2E suite. New tests exercise the real application factory and HTTP adapters
+against isolated migrated PostgreSQL/pgvector, including multi-batch embedding
+failures, replay, overlapping jobs, uncertain successful commits/checkpoints,
+history continuation, rebuild interruption/resume/abort, privileged access,
+independent retrieval branches, bounded ranking preferences and generation races.
+The database test helper now serializes RPC transaction callbacks correctly.
+See [test groups, commands and coverage limits](evidence-tests.md).
 
 Next operator steps: review/apply the additive migration, configure runtime
 bindings, run `evidence:check-embeddings` for the target environment, run/repeat bounded ingestion until

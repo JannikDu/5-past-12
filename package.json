@@ -13,6 +13,8 @@
     "lint": "eslint . --max-warnings 0",
     "check": "astro check",
     "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "test:unit": "node --experimental-transform-types --test tests/model.test.ts tests/eonet.test.ts tests/evidence.test.ts tests/evidence-services.test.ts tests/evidence-adapters.test.ts",
+    "test:integration": "node --experimental-transform-types --test tests/evidence-sql.test.ts tests/evidence-integration.test.ts tests/evidence-retrieval-sql.test.ts",
     "build": "astro build",
     "preview": "astro preview",
     "evidence:ingest": "node --env-file-if-exists=.env --experimental-transform-types scripts/ingest-evidence.ts",

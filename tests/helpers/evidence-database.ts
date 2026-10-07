@@ -29,18 +29,19 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
     };
     const query = signatures[name]; if (!query) throw new Error('Unexpected test RPC');
     try {
-      await db.exec('begin; set local role service_role;');
-      const result = await db.query<{ result: unknown }>(query.sql, query.args);
-      await db.exec('commit;');
+      // PGlite serializes transaction callbacks, including concurrent RPC calls.
+      const result = await db.transaction(async tx => {
+        await tx.exec('set local role service_role;');
+        return tx.query<{ result: unknown }>(query.sql, query.args);
+      });
       return Response.json(result.rows[0].result);
     } catch (error) {
-      await db.exec('rollback;');
       diagnostics.push(`${name}: ${(error as Error).message}`);
       if (!(error as Error).message.includes('evidence:')) console.error('Unexpected local SQL error:', (error as Error).message);
       return Response.json({ message: (error as Error).message }, { status: 400 });
     }
   };
-  return { db, diagnostics, repository: new SupabaseEvidenceRepository({ url: 'https://database.test', secretKey: 'fake' }, { fetch: fetcher, retries: 0 }) };
+  return { db, diagnostics, fetch: fetcher, repository: new SupabaseEvidenceRepository({ url: 'https://database.test', secretKey: 'fake' }, { fetch: fetcher, retries: 0 }) };
 }
 export async function count(db: PGlite, table: string): Promise<number> {
   if (!/^evidence_[a-z_]+$/.test(table)) throw new Error('Invalid test table');
