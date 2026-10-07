@@ -2,6 +2,14 @@
 
 Migration: `migrations/20261006164800_create_climate_evidence_knowledge_base.sql`.
 
+The baseline migration is already applied and remains unchanged. The additive
+`20261007120000_evidence_ingestion_retrieval.sql` migration implements immutable
+versions/citations, processing generations, fenced progress, maintenance rebuilds
+and broad hybrid retrieval. See [operating guide](../docs/evidence.md) for runtime
+configuration, manual migration review/application, ingestion and recovery;
+[implementation report](../docs/evidence-implementation.md) distinguishes offline
+verification and read-only production checks from pending live acceptance.
+
 There was no Supabase configuration, SQL schema, migration history, database read
 policy, or standard timestamp trigger in this repository. This change introduces
 the conventional `supabase/migrations` location. It does not change the application,
@@ -52,17 +60,12 @@ not links to stored events.
 
 ## Embedding space
 
-There is no embedding provider, model, or dimension configuration in the project.
-The provisional default is **1536 dimensions**: a practical size for dense text
-embeddings, within pgvector's 2000-dimension HNSW limit for the `vector` type. It
-does not select or require a particular provider.
-
-Before applying the migration, another dimension requires changing both
-`embedding vector(1536)` and the dimension validation/message in
-`match_evidence_chunks`. After it has been applied, make a new migration instead
-of editing migration history. Change the column and RPC guard, rebuild the vector
-index as needed, and re-embed existing chunks. Above 2000 dimensions, review the
-index/type choice, for example a `halfvec` expression index.
+The production dimension is fixed at **1536**. Featherless requests explicitly
+set `dimensions: 1536`; the proposed model is `Qwen/Qwen3-Embedding-4B`, pending
+authenticated output verification. The pipeline rejects mismatched, nonfinite and
+zero vectors without reshaping them. Changing model, role policy or chunking
+requires the explicit maintenance rebuild; do not edit applied migrations or
+change the production dimension to fit an incompatible model.
 
 All stored vectors and query vectors must use the same model, preprocessing, and
 embedding space. Even a model change with the same dimension requires re-embedding.
@@ -103,7 +106,7 @@ needed. The RPC is SECURITY INVOKER, with execution revoked from PUBLIC, `anon`,
 and `authenticated`, and granted to `service_role`. The timestamp function is
 similarly restricted.
 
-The website's public information model does not yet define direct database reads.
+The website's public information model does not define direct database reads.
 Raw evidence and embeddings therefore remain server-only until a reviewed public
 read interface is introduced. The migration changes only its own object grants;
 it does not alter project-wide default grants, existing policies, or auto-RLS hooks.
@@ -117,11 +120,11 @@ reinterpreted. Re-running the migration preserves data. IF NOT EXISTS is not a
 schema reconciliation tool: unexpected pre-existing tables/functions must still be
 reviewed before deployment.
 
-Run from the repository root in PowerShell. The pinned CLI does not add a project
-dependency. Initialize once, because there is currently no `supabase/config.toml`:
+Run from the repository root in PowerShell. `supabase/config.toml` already exists;
+do not initialize again. The project already has the Supabase CLI dependency.
+The following pinned CLI commands preserve the existing manual workflow:
 
 ```powershell
-pnpm.cmd dlx --allow-build=supabase supabase@2.120.0 init
 pnpm.cmd dlx --allow-build=supabase supabase@2.120.0 login
 pnpm.cmd dlx --allow-build=supabase supabase@2.120.0 link --project-ref jzhndnbxttnrjfmiaaoe
 pnpm.cmd dlx --allow-build=supabase supabase@2.120.0 migration list

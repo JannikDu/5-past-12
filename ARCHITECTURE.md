@@ -35,19 +35,29 @@ This is a prototype; production globe / map technology remains an open decision.
 
 - Cloudflare Workers
 
-Workers will host server-side application logic and integrations required by the MVP.
+The dedicated evidence Worker runs the same server-only ingestion job as the
+manual runner. The Astro frontend remains static. Provider adapters and services
+live under the existing `src/data`, `src/domain`, `src/services`, and `src/server`
+conventions; no application framework or monorepo restructuring is required.
 
 ### Database
 
 - Supabase PostgreSQL
 
-No PostgreSQL extensions are committed to yet. Extensions may be evaluated and added later if the implementation requires them.
+The deployed evidence baseline uses pgvector with `vector(1536)` and a cosine
+HNSW index. An additive migration retains immutable source versions and passage
+citations alongside the current searchable projection, English full-text/GIN
+support, processing generations, and provider progress. Evidence tables and RPCs
+remain server-only with RLS and explicit service-role grants.
 
 ### Scheduling
 
 - Cloudflare Cron Triggers
 
-Cron-based ingestion or refresh jobs may be used for recurring data collection.
+The evidence Worker uses `0 */4 * * *` UTC to check both evidence providers.
+Durable state starts/resumes weekly publication rechecks and bounded historical
+backfill. Fenced leases coordinate overlapping manual and scheduled runs.
+Deployment and migration application remain explicit manual operations.
 
 Additional asynchronous infrastructure is not part of the current architecture decision and may be evaluated later.
 
@@ -62,7 +72,9 @@ The architecture should allow alternative providers or models to be added later 
 ### Data Providers
 
 NASA EONET v3 is the first natural-event source. Additional climate, disaster,
-research, news, and environmental providers remain open decisions.
+news, and environmental providers remain open decisions. Evidence ingestion adds
+separate Climate Central CSI alert and World Weather Attribution RSS/HTML adapters,
+each paired with an independent normalizer. No event relationships are created.
 
 All external data integrations should be isolated behind provider-specific adapters where practical.
 
@@ -116,8 +128,10 @@ truth or sufficiency of scientific evidence.
 To add a source such as GDACS or FIRMS, implement `EventSourceProvider`, normalize
 into `ClimateEvent`, and register it in `src/data/events.ts`. Provider-specific
 identifiers and field names stay inside adapters. No GDACS/FIRMS ingestion,
-scientific evidence retrieval, AI explanation, storage, or scheduled jobs have
-been implemented in this slice.
+AI explanation or event-to-evidence assessment has been implemented in that
+event slice. The separate evidence backend now supplies immutable ingestion,
+hybrid retrieval/citation lookup, and maintenance rebuilds through replaceable
+contracts. See [evidence operating guide](docs/evidence.md).
 
 The exploratory layer displays **reported natural events**, never publishes them
 as scientifically attributed climate-impact events. EONET references are typed
@@ -349,10 +363,8 @@ Further security controls may be added as integrations are selected.
 The following remain intentionally undecided:
 
 - production globe / mapping technology beyond the SVG prototype,
-- PostgreSQL extensions,
 - additional event-data providers beyond NASA EONET,
-- concrete climate-data providers,
-- concrete research and publication providers,
+- additional climate-data and research/publication providers,
 - concrete news providers,
 - AI model selection,
 - AI schema-validation library,

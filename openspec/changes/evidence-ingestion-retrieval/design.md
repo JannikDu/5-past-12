@@ -2,7 +2,7 @@
 
 ## Context
 
-See [proposal.md](proposal.md) for motivation and scope. This document records proposed implementation choices; no application code or database changes are part of this planning change.
+See [proposal.md](proposal.md) for motivation and scope. This document records the reviewed design. The [implementation report](../../../docs/evidence-implementation.md) records delivered code, executed verification, and pending authenticated acceptance; the baseline inspection below describes the pre-implementation repository.
 
 ### Inspected repository and schema
 

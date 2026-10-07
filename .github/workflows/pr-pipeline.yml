@@ -36,3 +36,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Bundle evidence Worker (no deployment)
+        run: pnpm evidence:worker:check

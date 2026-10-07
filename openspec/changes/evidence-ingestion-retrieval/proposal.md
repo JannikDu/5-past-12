@@ -41,4 +41,4 @@ None. The OpenSpec capability inventory is currently empty.
 - Expected dependency additions: small XML/HTML parsers compatible with Workers and pinned Wrangler tooling. Use existing injected `fetch`, `node:test`, `.test.ts`, and pnpm/CI conventions; avoid a new application framework or test framework.
 - The architecture document's statement that PostgreSQL extensions remain undecided predates the evidence migration. Align only the evidence/backend sections with the already deployed pgvector decision during implementation.
 
-This change currently contains planning artifacts only. Production state and authenticated Featherless output have not been verified or modified.
+The implementation and offline verification are present; see [implementation report](../../../docs/evidence-implementation.md). Production baseline metadata was verified read-only. Authenticated Featherless output and human-reviewed retrieval acceptance remain pending, and no production migration or deployment was performed.
