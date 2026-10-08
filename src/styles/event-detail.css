@@ -60,6 +60,32 @@
 .ed-loading-mark { width: 26px; height: 26px; margin-bottom: 24px; border: 1px solid var(--ed-line); border-top-color: var(--ed-text); border-radius: 50%; animation: ed-spin 1.1s linear infinite; }
 .ed-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .event-detail-noscript { max-width: 960px; margin: 24px auto; padding: 20px; color: var(--ink); background: var(--panel); font-size: 13px; }
+.ca-content { min-width: 0; font-size: 13px; }
+.ca-levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
+.ca-level { padding: 20px; border: 1px solid var(--ed-line); background: var(--ed-bg); }
+.ca-level h3 { font-size: 12px; margin-bottom: 12px; }
+.ca-level-value { display: block; font-size: 28px; font-weight: 400; text-transform: uppercase; letter-spacing: .04em; line-height: 1.3; margin-bottom: 14px; }
+.ca-level-unavailable { font-size: 15px; color: var(--ed-muted); }
+.ca-level-high { color: #85452d; }
+.ca-level-medium { color: #6a6532; }
+.ca-level-low { color: #486151; }
+.ca-level-none { color: var(--ed-muted); }
+.event-detail .ca-level p { font-size: 11px; margin: 0; color: var(--ed-muted); }
+.event-detail .ca-content > h3 { margin-top: 28px; }
+.event-detail .ca-content > .ed-footnote { margin-bottom: 24px; }
+.ca-notice { padding: 16px; border-left: 2px solid var(--ed-accent); background: #eeefe7; }
+.ca-relation, .ca-source-meta { color: var(--ed-muted); font-size: 10px; }
+.ca-relation { display: block; margin-bottom: 8px; }
+.ca-claim-links, .ca-limitations { padding-left: 18px; margin: 12px 0 22px; font-size: 12px; }
+.ca-limitations { color: var(--ed-muted); }
+.ca-findings strong { font-weight: 500; }
+.ca-scientific-evidence { padding-top: 28px; border-top: 1px solid var(--ed-line); margin: 28px 0; }
+.event-detail .ca-scientific-evidence > h3 { font-size: 18px; font-weight: 300; }
+.ca-evidence-group { margin: 24px 0 32px; }
+.ca-source { padding: 20px 0; border-bottom: 1px solid var(--ed-line); overflow-wrap: anywhere; }
+.ca-source h4 { font-size: 14px; font-weight: 500; margin: 0 0 8px; }
+.ca-source blockquote { margin: 12px 0 22px; padding-left: 16px; border-left: 1px solid var(--ed-accent); color: var(--ed-muted); font-size: 12px; white-space: pre-line; }
+@media (max-width: 450px) { .ca-levels { grid-template-columns: 1fr; } }
 @keyframes ed-spin { to { transform: rotate(360deg); } }
 @media (max-width: 1000px) {
   .ed-section { grid-template-columns: 210px minmax(0, 1fr); column-gap: 28px; }

@@ -1,9 +1,12 @@
 node_modules/
 dist/
 .astro/
+.wrangler/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
 *.log
 .DS_Store
 .devswarm-temp/

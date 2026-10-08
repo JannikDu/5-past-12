@@ -21,6 +21,14 @@ function integer(env: Record<string, string | undefined>, name: string, fallback
   const text = env[name]; const value = text === undefined ? fallback : /^\d+$/.test(text) ? Number(text) : NaN;
   if (!Number.isSafeInteger(value) || value < min || value > max) throw new EvidenceError('validation', `${name} must be an integer from ${min} to ${max}`); return value;
 }
+export function assessmentModelConfig(env: Record<string, string | undefined>) {
+  const temperature = Number(env.CLIMATE_ASSESSMENT_TEMPERATURE ?? '0.1');
+  if (!Number.isFinite(temperature) || temperature < 0 || temperature > 1) throw new EvidenceError('validation', 'Assessment temperature must be from 0 to 1');
+  return { apiKey: required(env, 'FEATHERLESS_API_KEY'), model: env.CLIMATE_ASSESSMENT_MODEL?.trim() || 'Qwen/Qwen3-32B',
+    baseUrl: url(env.FEATHERLESS_BASE_URL ?? 'https://api.featherless.ai/v1', 'FEATHERLESS_BASE_URL'), temperature,
+    maxTokens: integer(env, 'CLIMATE_ASSESSMENT_MAX_TOKENS', 4000, 512, 8000),
+    timeoutMs: integer(env, 'CLIMATE_ASSESSMENT_TIMEOUT_MS', 180000, 10000, 300000) };
+}
 export function evidenceConfig(env: Record<string, string | undefined>): EvidenceConfig {
   const chunking = { size: integer(env, 'EVIDENCE_CHUNK_SIZE', 2400, 1, 10000), overlap: integer(env, 'EVIDENCE_CHUNK_OVERLAP', 300, 0, 9999), minSize: integer(env, 'EVIDENCE_CHUNK_MIN_SIZE', 400, 1, 10000) };
   if (chunking.overlap + chunking.minSize > chunking.size) throw new EvidenceError('validation', 'Chunk overlap + minimum must not exceed chunk size');

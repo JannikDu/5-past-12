@@ -50,6 +50,14 @@ export class SupabaseEvidenceRepository implements EvidenceRepository {
     this.endpoint = `${config.url.replace(/\/$/, '')}/rest/v1/rpc`;
     this.http = new EvidenceHttpClient({ ...options, maxBytes: options.maxBytes ?? 8 * 1024 * 1024 });
   }
+  /** Discovery ordering only; titles never establish claim support or attribution. */
+  async discoveryPublicationTitles(): Promise<string[]> {
+    const parameters = new URLSearchParams({ select: 'title', current_version_id: 'not.is.null', order: 'published_at.desc', limit: '500' });
+    const response = await this.http.json(`${this.config.url.replace(/\/$/, '')}/rest/v1/evidence_sources?${parameters}`, {
+      headers: { apikey: this.config.secretKey }, redirect: 'error' });
+    if (!Array.isArray(response) || response.length > 500) throw new EvidenceError('contract', 'Invalid discovery publication list');
+    return response.map(value => string(object(value), 'title'));
+  }
   private async rpc(name: string, input: Record<string, unknown>): Promise<unknown> {
     let response;
     try { response = await this.http.request(`${this.endpoint}/${name}`, { method: 'POST', redirect: 'error',

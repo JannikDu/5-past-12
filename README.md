@@ -165,6 +165,20 @@ manual rebuilds, and a four-hour scheduled Worker are implemented separately fro
 the frontend. Setup and commands: [evidence operating guide](docs/evidence.md).
 Executed checks and pending live acceptance: [implementation report](docs/evidence-implementation.md).
 
+Event detail also displays persisted AI-assisted climate assessments with separate
+**Human Influence** and **Evidence Strength** indicators, cited findings, direct
+and indirect publication groups, and uncertainty. Assessments use four retrieval
+perspectives and Featherless generation plus independent passage review. The
+existing evidence Worker serves saved results and protects explicit generation;
+page loads never run the LLM. Setup, additive migration, and demonstration command:
+[climate assessment guide](docs/climate-assessment.md).
+Executed checks, applied migration, live results, and remaining acceptance work:
+[assessment implementation report](docs/climate-assessment-implementation.md).
+`pnpm climate:discover` searches sequentially for validated direct or indirect
+findings among events from the last three years, with explicit call limits,
+progressive results, preview reports, and resume support. Publication metadata
+prioritizes candidates; scientific claims still require retrieved passages.
+
 ## License
 
 MIT License. See `LICENSE`.

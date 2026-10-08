@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ClimateAssessmentPanel from './ClimateAssessmentPanel.tsx';
 import { eventProviders, findEvent } from '../data/events.ts';
 import {
   DataKind, SourceKind, parseEventId,
@@ -46,7 +47,7 @@ async function resolveDetail(signal: AbortSignal): Promise<DetailState> {
   return event ? { kind: 'ready', event } : { kind: 'notfound' };
 }
 
-function Report({ event }: { event: ClimateEvent }) {
+function Report({ event, assessmentApiUrl }: { event: ClimateEvent; assessmentApiUrl: string }) {
   const isDemo = event.provenance.dataKind === DataKind.Demo;
   const reports = event.sources.filter((source) => source.kind === SourceKind.EventReport);
   const studies = event.sources.filter((source) => source.kind === SourceKind.ScientificStudy);
@@ -102,22 +103,18 @@ function Report({ event }: { event: ClimateEvent }) {
           <p className="ed-footnote">Observation times describe the record, not necessarily the event’s onset or end.</p>
         </section>
 
-        <section className="ed-section" aria-labelledby="cause-title">
-          <div className="ed-section-heading"><span aria-hidden="true">02</span><h2 id="cause-title">Cause / Climate Connection</h2></div>
-          <p className="ed-empty">No verified cause or climate connection explanation is available for this {isDemo ? 'fictional fixture' : 'event'}.</p>
-          <p>An event report records an event. It does not establish that climate change caused it or changed its likelihood or intensity. A NASA EONET record is not an attribution study.</p>
-        </section>
+        <ClimateAssessmentPanel event={event} apiUrl={assessmentApiUrl} />
 
         <section className="ed-section" aria-labelledby="evidence-title">
-          <div className="ed-section-heading"><span aria-hidden="true">03</span><h2 id="evidence-title">Evidence</h2></div>
-          <p className="ed-evidence-status"><span className="ed-status-dot" aria-hidden="true" />{event.evidence.status}</p>
+          <div className="ed-section-heading"><span aria-hidden="true">03</span><h2 id="evidence-title">Provider evidence</h2></div>
+          <p className="ed-evidence-status"><span className="ed-status-dot" aria-hidden="true" />Provider record: {event.evidence.status}</p>
           {references.length ? <ul className="ed-findings">{references.map(({ reference, source }) => (
             <li key={`${reference.sourceId}:${reference.finding}`}>
               <p>{reference.finding}</p>
               {reference.passage && <blockquote>{reference.passage}</blockquote>}
               <SourceLink source={source} />
             </li>
-          ))}</ul> : <p className="ed-empty">No scientific attribution evidence is available for this {isDemo ? 'fictional fixture' : 'event'}.</p>}
+          ))}</ul> : <p className="ed-empty">No scientific attribution references are attached to this provider record. The Climate Assessment above shows evidence retrieved independently.</p>}
           <p>Source report links below document the record. They are separate from scientific studies and do not serve as climate attribution evidence.</p>
         </section>
 
@@ -145,7 +142,7 @@ const messages = {
   error: ['Unable to load this event', 'The event provider could not be reached or returned an unreadable record. Please try again.'],
 } as const;
 
-export default function EventDetail() {
+export default function EventDetail({ assessmentApiUrl = '' }: { assessmentApiUrl?: string }) {
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -163,7 +160,7 @@ export default function EventDetail() {
     <div className="event-detail">
       <nav className="ed-nav" aria-label="Event navigation"><a href="/"><span aria-hidden="true">← </span>Back to globe</a><span className="ed-nav-label">5 PAST 12 / EVENT DETAIL</span></nav>
       <div aria-live="polite" aria-busy={state.kind === 'loading'}>
-        {state.kind === 'ready' ? <Report event={state.event} /> : (
+        {state.kind === 'ready' ? <Report event={state.event} assessmentApiUrl={assessmentApiUrl} /> : (
           <div className="ed-state">
             {state.kind === 'loading' ? <>
               <span className="ed-loading-mark" aria-hidden="true" />

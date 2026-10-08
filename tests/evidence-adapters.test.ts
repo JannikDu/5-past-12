@@ -5,12 +5,35 @@ import { FeatherlessEmbeddingProvider } from '../src/data/embeddings/featherless
 import { SupabaseEvidenceRepository } from '../src/data/repositories/supabase-evidence.ts';
 import { profile, vector } from './helpers/evidence-fixtures.ts';
 
+test('discovery publication hints use the server-only source catalog and reject malformed records', async () => {
+  for (const valid of [true, false]) {
+    const repository = new SupabaseEvidenceRepository({ url: 'https://database.test', secretKey: 'fake-server-key' }, { fetch: async (input, init) => {
+      const url = new URL(String(input)); assert.equal(url.pathname, '/rest/v1/evidence_sources');
+      assert.equal(url.searchParams.get('current_version_id'), 'not.is.null'); assert.equal(url.searchParams.get('select'), 'title');
+      assert.equal(new Headers(init?.headers).get('apikey'), 'fake-server-key'); assert.equal(init?.redirect, 'manual');
+      return Response.json(valid ? [{ title: 'A named-event publication' }] : [{ title: null }]);
+    } });
+    if (valid) assert.deepEqual(await repository.discoveryPublicationTitles(), ['A named-event publication']);
+    else await assert.rejects(repository.discoveryPublicationTitles(), { code: 'contract' });
+  }
+});
+
+test('redirect rejection works in workerd and never follows or retries a credentialed redirect', async () => {
+  let requests = 0;
+  const http = new EvidenceHttpClient({ retries: 3, fetch: async (_url, init) => {
+    requests++; assert.equal(init?.redirect, 'manual');
+    return new Response(null, { status: 302, headers: { Location: 'https://untrusted.example/' } });
+  } });
+  await assert.rejects(http.json('https://trusted.example/', { redirect: 'error', headers: { Authorization: 'Bearer fake' } }), /HTTP redirect blocked/);
+  assert.equal(requests, 1);
+});
+
 test('Featherless retries rate limits with the same authenticated batch and keeps output order', async () => {
   const requests: { url: string; input: string[]; model: string; dimensions: number; encoding_format: string }[] = [];
   const sleeps: number[] = [];
   const provider = new FeatherlessEmbeddingProvider({ apiKey: 'test-embedding-key', model: profile.embedding.model, baseUrl: 'https://embedding.test/v1', batchSize: 2 }, {
     sleep: async ms => { sleeps.push(ms); }, fetch: async (url, init) => {
-      assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'error');
+      assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'manual');
       const headers = new Headers(init?.headers); assert.equal(headers.get('Authorization'), 'Bearer test-embedding-key'); assert.equal(headers.get('apikey'), null);
       const body = JSON.parse(String(init?.body)); requests.push({ url: String(url), ...body });
       if (requests.length === 1) return new Response(null, { status: 429, headers: { 'retry-after': '1' } });

@@ -8,11 +8,12 @@ import EventCounter from './EventCounter.tsx';
 import EventTypeFilter from './EventTypeFilter.tsx';
 import Globe from './Globe.tsx';
 import Icon from './Icon.tsx';
+import { withinAssessmentWindow } from '../services/assessment-window.ts';
 
 type Feed =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; events: ClimateEvent[]; skipped: number };
+  | { status: 'ready'; events: ClimateEvent[]; skipped: number; outsideWindow: number };
 
 function coordinates(event: ClimateEvent) {
   const [longitude, latitude] = event.location.marker;
@@ -36,7 +37,10 @@ export default function App() {
       try {
         if (!provider) throw new Error('The NASA EONET provider is unavailable.');
         const batch = await provider.fetchEvents({ days: 30, limit: 60, signal: controller.signal });
-        if (!controller.signal.aborted) setFeed({ status: 'ready', ...batch });
+        if (!controller.signal.aborted) {
+          const events = batch.events.filter(event => withinAssessmentWindow(event));
+          setFeed({ status: 'ready', events, skipped: batch.skipped, outsideWindow: batch.events.length - events.length });
+        }
       } catch (error) {
         if (!controller.signal.aborted) setFeed({ status: 'error',
           message: error instanceof Error ? error.message : 'The event feed could not be loaded.' });
@@ -131,6 +135,7 @@ export default function App() {
 
       {mode === 'demo' && <p className="feed-notice" role="status"><span className="signal-dot" />Demo mode. All events below are fictional and have no attribution evidence.</p>}
       {mode === 'live' && feed.status === 'ready' && feed.skipped > 0 && <p className="feed-notice" role="status">{feed.skipped} invalid or duplicate records skipped.</p>}
+      {mode === 'live' && feed.status === 'ready' && feed.outsideWindow > 0 && <p className="feed-notice">{feed.outsideWindow} reports outside the supported three-year window excluded.</p>}
 
       {isLoading ? <div className="status"><span className="loading-dot" /><h3>Looking around the world.</h3><p>Connecting to recent reports from NASA EONET.</p></div>
         : failed ? <div className="status" role="alert"><p className="eyebrow">Connection interrupted</p><h3>Live reports are temporarily unavailable.</h3>

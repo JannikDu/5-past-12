@@ -187,11 +187,22 @@ export class EonetProvider implements EventSourceProvider {
     }
   }
 
-  async fetchEvents({ days = 30, limit = 60, signal }: EventQuery = {}): Promise<EventBatch> {
-    if (!Number.isInteger(days) || days < 1 || days > 365
+  async fetchEvents(query: EventQuery = {}): Promise<EventBatch> {
+    const { days = 30, limit = 60, signal, start, end, category } = query;
+    const historical = start !== undefined || end !== undefined;
+    const validDay = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      && date(`${value}T00:00:00Z`)?.slice(0, 10) === value;
+    if ((historical ? query.days !== undefined || !validDay(start) || !validDay(end) || start > end
+      || Date.parse(end) - Date.parse(start) > 1096 * 86400000 : !Number.isInteger(days) || days < 1 || days > 365)
       || !Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error('Invalid event query.');
+    const categoryId = category === undefined ? undefined : Object.keys(categories).find(id => categories[id] === category);
+    if (category !== undefined && !categoryId) throw new Error('Unsupported EONET category.');
     const url = new URL(`${API}/events`);
-    url.search = new URLSearchParams({ days: String(days), limit: String(limit), status: 'all' }).toString();
+    const parameters = new URLSearchParams({ limit: String(limit), status: 'all' });
+    if (historical) { parameters.set('start', start!); parameters.set('end', end!); }
+    else parameters.set('days', String(days));
+    if (categoryId) parameters.set('category', categoryId);
+    url.search = parameters.toString();
     const data = await this.request(url, signal);
     if (!record(data) || !Array.isArray(data.events)) throw new Error('NASA EONET returned an invalid event feed.');
     const fetchedAt = new Date().toISOString();
