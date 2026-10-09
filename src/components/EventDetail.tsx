@@ -67,7 +67,7 @@ function Report({ event, assessmentApiUrl }: { event: ClimateEvent; assessmentAp
       {isDemo && (
         <div className="ed-demo">
           <strong>Fictional demo event</strong>
-          <p>This fixture is for exploring the prototype. It is not an actual event report; its location and dates are fictional.</p>
+          <p>This event and its climate connection are fictional. Influence and evidence levels are simulated for exploring the prototype, not scientific findings about this location.</p>
         </div>
       )}
       <header className="ed-header">

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import type { ClimateEvent } from '../domain/climate-event.ts';
 import { demoEvents } from '../data/demo-events.ts';
+import { demoAssessments } from '../data/demo-assessments.ts';
 import { eventDetailUrl, eventProviders } from '../data/events.ts';
 import { constrainView, INITIAL_VIEW } from '../lib/globe.ts';
 import EventCard, { observationDate } from './EventCard.tsx';
@@ -71,7 +72,9 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
   const isLoading = mode !== 'demo' && feed.status === 'loading';
   const failed = mode !== 'demo' && feed.status === 'error';
   const connectionFeed=mode==='assessed'&&feed.status==='ready'?feed.connections:undefined;
-  const indicators=new Map(connectionFeed?.indicators.map(indicator=>[indicator.eventId,indicator]));
+  const indicators = new Map((mode === 'demo'
+    ? demoAssessments.map(({ eventId, humanInfluence, evidenceStrength }) => ({ eventId, humanInfluence, evidenceStrength, stale: false }))
+    : connectionFeed?.indicators ?? []).map(indicator => [indicator.eventId, indicator]));
 
   function changeMode(next: 'assessed' | 'live' | 'demo') {
     if (mode === next) return;
@@ -114,7 +117,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
             {mode === 'demo' ? 'Demo observations' : failed ? 'Connection interrupted' : mode==='assessed'?'Climate connections':'Live observations'}</p>
           <EventCounter count={events.length} loading={isLoading} unavailable={failed} />
           <p className="feed-source">{mode === 'demo' ? '8 fictional events' : 'NASA EONET'}<br />
-            {mode === 'demo' ? 'For exploring the prototype' : mode==='assessed'?'Cited findings · Last three years':'Last 30 days · Up to 60 reports'}</p>
+            {mode === 'demo' ? 'Simulated climate connections' : mode==='assessed'?'Cited findings · Last three years':'Last 30 days · Up to 60 reports'}</p>
           {failed && <button className="text-button" onClick={retry}>Reconnect <Icon name="reset" /></button>}
         </div>
         {selected && <EventCard event={selected} onClose={() => setSelectedId(null)} />}
@@ -148,7 +151,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
         <p className="list-summary" role="status">{isLoading ? 'Connecting to the feed…' : failed ? 'Feed unavailable' : `${filteredEvents.length} ${filteredEvents.length === 1 ? 'event' : 'events'}${query || category !== 'all' ? ' in this view' : ' · Latest observations first'}`}</p>
       </div>
 
-      {mode === 'demo' && <p className="feed-notice" role="status"><span className="signal-dot" />Demo mode. All events below are fictional and have no attribution evidence.</p>}
+      {mode === 'demo' && <p className="feed-notice" role="status"><span className="signal-dot" />Demo mode. All events and climate connections are fictional. Influence and evidence levels are simulated examples, not scientific assessments.</p>}
       {connectionFeed && <ClimateConnectionProgress feed={connectionFeed} />}
       {mode === 'live' && feed.status === 'ready' && feed.skipped > 0 && <p className="feed-notice" role="status">{feed.skipped} invalid or duplicate records skipped.</p>}
       {mode === 'live' && feed.status === 'ready' && feed.outsideWindow > 0 && <p className="feed-notice">{feed.outsideWindow} reports outside the supported three-year window excluded.</p>}
@@ -164,7 +167,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
             <button className="event-select" onClick={() => focusEvent(event)} aria-pressed={event.id === selected?.id}>
               <span className="event-row-content"><span className="event-row-title"><span className="list-marker" />{event.title}</span>
                 <span className="event-row-category">{event.categories.join(' / ')}</span>
-                {indicators.has(event.id) && <span className="event-row-category">Human Influence: {indicators.get(event.id)!.humanInfluence} · Evidence Strength: {indicators.get(event.id)!.evidenceStrength}{indicators.get(event.id)!.stale?' · Evidence updated since assessment':''}</span>}</span>
+                {indicators.has(event.id) && <span className="event-row-category">{mode === 'demo' && 'Simulated · '}Human Influence: {indicators.get(event.id)!.humanInfluence} · Evidence Strength: {indicators.get(event.id)!.evidenceStrength}{indicators.get(event.id)!.stale?' · Evidence updated since assessment':''}</span>}</span>
               <span className="event-row-location">{event.location.label ?? coordinates(event)}</span>
               <time className="event-row-date" dateTime={event.time.lastObservedAt}>{observationDate(event.time.lastObservedAt)}</time>
             </button><a className="row-detail-link" href={eventDetailUrl(event)} aria-label={`Open details for ${event.title}`}><Icon name="arrow-up-right" /></a>
