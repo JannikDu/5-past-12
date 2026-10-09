@@ -48,6 +48,9 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
   const catalog=new SupabaseClimateEventCatalog({url:'https://database.test',secretKey:'fake'},{fetch:local.fetch,retries:0});
   const jobLease=(await catalog.acquire())!;const eventHash=await eventFingerprint(event);
   await catalog.upsert(jobLease,[{event,fingerprint:eventHash,priority:1}]);
+  await catalog.checkpoint(jobLease,'2026-10-01');
+  assert.equal((await catalog.feed()).historyEnd,'2026-10-01');
+  await assert.rejects(catalog.checkpoint({...jobLease,leaseId:crypto.randomUUID()},'2026-09-24'));
   await catalog.begin(jobLease,event.id,eventHash,llm.model);await catalog.finish(jobLease,event.id,eventHash,llm.model,assessment);
   const connectionFeed=await catalog.feed();assert.equal(connectionFeed.events[0].id,event.id);assert.equal(connectionFeed.indicators[0].humanInfluence,'high');assert.equal(connectionFeed.counts.connections,1);
   await catalog.release(jobLease,{},undefined,true);
@@ -71,7 +74,7 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
       for (const table of ['climate_assessments', 'climate_assessment_citations', 'climate_assessment_failures']) {
         assert.equal((await db.query<{ allowed: boolean }>('select has_table_privilege($1,$2,\'SELECT\') allowed', [role, table])).rows[0].allowed, false);
       }
-      for (const fn of ['climate_assessment_snapshot()', 'climate_assessment_latest(text)', 'climate_assessment_save(jsonb)', 'climate_assessment_failed(text)'])
+      for (const fn of ['climate_assessment_snapshot()', 'climate_assessment_latest(text)', 'climate_assessment_save(jsonb)', 'climate_assessment_failed(text)', 'evidence_citations(uuid[])', 'climate_event_checkpoint(jsonb)'])
         assert.equal((await db.query<{ allowed: boolean }>('select has_function_privilege($1,$2,\'EXECUTE\') allowed', [role, fn])).rows[0].allowed, false);
     }
     for (const table of ['climate_assessments', 'climate_assessment_citations'])
@@ -85,6 +88,10 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
     assert.equal((await catalog.feed()).indicators[0].stale,true);
     const read = await service.read(event.id); assert.ok(read.kind === 'available' && read.stale);
     assert.equal((await evidence.findByChunkId(chunkId))!.content, original.normalizedText);
+    const batch=await evidence.findByChunkIds([chunkId,chunkId,crypto.randomUUID()]);
+    assert.equal(batch.length,1);assert.equal(batch[0].content,original.normalizedText);
+    assert.deepEqual(await evidence.findByChunkIds([]),[]);
+    await assert.rejects(evidence.findByChunkIds(Array(101).fill(chunkId)));
     const stale = { ...assessment, id: crypto.randomUUID() }; await assert.rejects(repository.save(stale));
     assert.equal((await db.query('select * from public.climate_assessments')).rows.length, 1);
   });
@@ -100,5 +107,12 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
     assert.deepEqual(await service.read('eonet:failed-fixture'), { kind: 'generation_failed' });
     await service.assess(event, { force: true });
     assert.equal((await repository.latest(event.id))!.generationFailed, false);
+  });
+  await t.test('scientifically rejected assessments retain history and disappear from public reads and feed',async()=>{
+    const saved=await db.query<{id:string}>('select id from public.climate_assessments where event_id=$1',[event.id]);
+    for(const row of saved.rows)await db.query('select public.climate_assessment_reject($1::uuid,$2)',[row.id,'Manual fixture review rejection']);
+    assert.deepEqual(await service.read(event.id),{kind:'generation_failed'});assert.equal((await catalog.feed()).events.length,0);
+    assert.equal((await db.query('select * from public.climate_assessments')).rows.length,saved.rows.length);
+    for(const role of ['anon','authenticated'])assert.equal((await db.query<{allowed:boolean}>('select has_function_privilege($1,\'climate_assessment_reject(uuid,text)\',\'EXECUTE\') allowed',[role])).rows[0].allowed,false);
   });
 });

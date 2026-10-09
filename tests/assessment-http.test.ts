@@ -20,7 +20,7 @@ const endpoint = 'https://backend.test/api/climate-assessments';
 test('connection feed is read-only and scheduled processing requires operator authorization',async()=>{
   const app=dependencies();let jobs=0;
   const deps={...app.deps,feed:async()=>({events:[],indicators:[],counts:{total:0,pending:0,failed:0,insufficient:0,connections:0},updatedAt:null,historyEnd:null}) as ClimateEventFeed,
-    runJob:async()=>{jobs++;return {status:'completed' as const,discovered:0,attempted:0,completed:0,insufficient:0,failed:0,modelCalls:0};}};
+    runJob:async()=>{jobs++;return {status:'completed' as const,selection:'study-first' as const,discovered:0,attempted:0,completed:0,insufficient:0,failed:0,modelCalls:0};}};
   assert.equal((await assessmentHttp(new Request('https://backend.test/api/climate-events'),env,deps)).status,200);
   assert.deepEqual(app.counts(),{reads:0,assessments:0,lookups:0});assert.equal(jobs,0);
   const jobUrl='https://backend.test/api/climate-event-jobs?action=refresh';

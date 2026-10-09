@@ -20,6 +20,8 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
       await db.exec(await readFile(new URL('../../supabase/migrations/20261008130000_climate_assessments.sql', import.meta.url), 'utf8'));
       await db.exec(await readFile(new URL('../../supabase/migrations/20261009010000_climate_event_catalog.sql', import.meta.url), 'utf8'));
       await db.exec(await readFile(new URL('../../supabase/migrations/20261009013000_assessment_publication_guards.sql', import.meta.url), 'utf8'));
+      await db.exec(await readFile(new URL('../../supabase/migrations/20261009090000_event_job_request_budget.sql', import.meta.url), 'utf8'));
+      await db.exec(await readFile(new URL('../../supabase/migrations/20261009120000_study_first_event_discovery.sql', import.meta.url), 'utf8'));
     }
   } catch (error) { await db.close(); throw error; }
   const diagnostics: string[] = [];
@@ -31,11 +33,14 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
       store_evidence_source: { sql: 'select public.store_evidence_source($1::jsonb) result', args: [JSON.stringify(body.payload)] },
       hybrid_match_evidence_chunks: { sql: 'select public.hybrid_match_evidence_chunks($1::jsonb) result', args: [JSON.stringify(body.payload)] },
       evidence_citation: { sql: 'select public.evidence_citation($1::uuid) result', args: [body.chunk_id] },
+      evidence_citations: { sql: 'select public.evidence_citations($1::uuid[]) result', args: [body.chunk_ids] },
+      climate_event_checkpoint: { sql: 'select public.climate_event_checkpoint($1::jsonb) result', args: [JSON.stringify(body.payload)] },
       climate_assessment_snapshot: { sql: 'select public.climate_assessment_snapshot() result', args: [] },
       climate_assessment_latest: { sql: 'select public.climate_assessment_latest($1) result', args: [body.event_id] },
       climate_assessment_save: { sql: 'select public.climate_assessment_save($1::jsonb) result', args: [JSON.stringify(body.payload)] },
       climate_assessment_failed: { sql: 'select public.climate_assessment_failed($1) result', args: [body.event_id] },
       climate_event_control: {sql:'select public.climate_event_control($1,$2::jsonb) result',args:[body.action,JSON.stringify(body.payload)]},
+      climate_study_control: {sql:'select public.climate_study_control($1,$2::jsonb) result',args:[body.action,JSON.stringify(body.payload)]},
     };
     const query = signatures[name]; if (!query) throw new Error('Unexpected test RPC');
     try {

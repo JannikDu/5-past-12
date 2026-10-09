@@ -7,6 +7,7 @@ export interface CatalogItem { event: ClimateEvent; fingerprint: string; priorit
 export interface ClimateEventCatalog {
   acquire(): Promise<CatalogLease|null>;
   upsert(lease: CatalogLease,items: CatalogItem[]): Promise<void>;
+  checkpoint(lease: CatalogLease,historyEnd: string): Promise<void>;
   pending(lease: CatalogLease,model: string): Promise<ClimateEvent[]>;
   begin(lease: CatalogLease,eventId: string,fingerprint: string,model: string): Promise<void>;
   finish(lease: CatalogLease,eventId: string,fingerprint: string,model: string,assessment?: ClimateAssessment,errorCode?: string): Promise<void>;
@@ -28,6 +29,11 @@ export class SupabaseClimateEventCatalog implements ClimateEventCatalog {
     return {leaseId,historyEnd:row.historyEnd as string|null};
   }
   async upsert(lease: CatalogLease,items: CatalogItem[]) {if(items.some(i=>!isClimateEvent(i.event)))throw new AssessmentError('validation','Invalid catalog event');await this.control('upsert',{...lease,items});}
+  async checkpoint(lease: CatalogLease,historyEnd: string) {
+    const r=await this.http.request(`${this.config.url}/rest/v1/rpc/climate_event_checkpoint`,{method:'POST',redirect:'error',
+      headers:{apikey:this.config.secretKey,'Content-Type':'application/json'},body:JSON.stringify({payload:{leaseId:lease.leaseId,historyEnd}})});
+    if(r.status<200||r.status>=300)throw new AssessmentError('database',`Event checkpoint failed (${r.status})`);
+  }
   async pending(lease: CatalogLease,model: string) {const result=await this.control('pending',{...lease,model});
     if(!Array.isArray(result)||result.length>30||!result.every(isClimateEvent))throw new AssessmentError('database','Invalid pending events');return result as ClimateEvent[];}
   async begin(lease: CatalogLease,eventId: string,fingerprint: string,model: string) {await this.control('begin',{...lease,eventId,fingerprint,model});}

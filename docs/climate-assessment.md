@@ -23,6 +23,7 @@ pnpm climate:discover --preview --max-model-calls=2 --target=1
 pnpm climate:discover --max-model-calls=6 --target=1 --category=storm
 pnpm climate:update --refresh-only
 pnpm climate:update
+pnpm climate:update --runs=8
 ```
 
 Select real namespaced IDs from the globe. The command resolves the actual EONET
@@ -102,20 +103,43 @@ clients cannot submit fabricated events. Keep the token out of the frontend.
 
 ## Automatic event processing
 
-The evidence Worker now has two independent schedules: source ingestion every
-four hours and event processing every ten minutes. Event processing refreshes
-recent EONET reports and one historical week across all categories in the
-three-year window. It splits provider windows that fill the 200-record limit;
-a saturated single day or exhausted request budget is reported incomplete and
-does not advance the historical cursor. Invalid provider records retain the
-provider's existing skip behavior. A service-only catalog stores real normalized
-events separately from scientific assessments. It is not an attribution source.
+The evidence Worker has two independent schedules: source ingestion every four
+hours and event processing every ten minutes. Event processing now selects up to
+two stored attribution-study versions first. Study metadata or opening dates and
+hazard categories guide bounded NASA EONET queries. Distinctive event/place words
+must match the study text, and each real event's first reported observation must
+fall within the last three calendar years. Study publication age has no cutoff.
+Country-only records must match the headline or opening event paragraph, so a
+researcher's affiliation does not select an unrelated event. Named events take
+priority over generic country records in the matched assessment queue. Selection
+is a retrieval hint, never scientific support or a reason to raise levels.
+The cron does not fall back to chronological windows or unrelated pending events.
 
-Every discovered eligible event is attempted progressively, not only positive
-matches. Each invocation allows at most six actual model requests by default,
+The additive `20261009120000_study_first_event_discovery.sql` migration stores
+matched, no-match, ineligible and incomplete lookups by immutable source version.
+Corrected/new versions enter selection afresh. Completed lookups are rechecked
+after seven days; incomplete lookups after one hour, allowing other studies to
+proceed. Each study lookup allows at most six provider requests and splits windows
+that fill the 200-record limit. Saturated days and request exhaustion remain
+explicitly incomplete. Lookup results are committed before generation. The old
+historical cursor and catalog history remain stored, but no longer drive the cron.
+A service-only catalog stores real normalized events separately from assessments;
+it is not an attribution source.
+
+Every eligible study-matched event is attempted progressively. Each invocation
+allows at most six actual model requests by default,
 including missing-field repairs. It refuses later calls when its twelve-minute
 runtime budget cannot accommodate the ninety-second scheduled model timeout.
 It stops starting events after nine minutes, leaving untouched candidates pending.
+Outgoing requests have a separate hard cap of 48, below the Workers Free limit
+of 50. Immutable citation lookup uses one service-only batch RPC rather than up
+to 24 individual requests. The job starts another assessment only with room for
+its worst-case requests and reserves three requests for failure/final writes.
+Scheduled transport requests do not retry; the missing-field JSON repair policy
+is unchanged. In practice, a normal fresh assessment usually consumes one cron
+invocation; six model calls are a ceiling, not a target throughput.
+Discovery commits study lookups before generation, so a terminated model request
+does not lose study-selection progress.
 A fifteen-minute singleton lease excludes overlapping runs, including manual
 `climate:update` calls. Failed/interrupted attempts persist their fingerprint,
 policy and model before generation and are not regenerated automatically for
@@ -126,11 +150,16 @@ The default globe reads `/api/climate-events`, refreshing saved data every minut
 It displays up to 200 latest validated completed connections with cited findings,
 including indirect findings with Human Influence none. The separate Live reports
 view retains the last-30-days NASA feed. Aggregate discovered/pending/insufficient/
-failed counts explain progress; the selected connections are not a population
+failed counts describe the retained catalog, including legacy records that are
+only processed automatically if matched to a study. These counts are not an
+exclusive partition or a measure of remaining study lookups. The selected connections are not a population
 estimate of attribution frequency. Empty states never invent scientific findings.
 
 `pnpm climate:update` runs the same bounded job against the configured database.
-`--refresh-only` discovers and saves event snapshots without generation. Protected
+`--runs=8` executes eight sequential bounded invocations, with a fresh per-run call
+budget (at most 48 completions total with the default six-call ceiling); it stops
+on a busy lease. `--runs` accepts 1–30. `--refresh-only` discovers and saves
+study-matched snapshots without generation. Protected
 backend POST `/api/climate-event-jobs?action=refresh` or `action=run` requires the
 operator token; it is not available through the public frontend proxy. Existing
 explicit per-event reassessment remains available when an operator elects to
@@ -169,6 +198,11 @@ and punctuation, and recognizes abbreviated source months. It retains distinctiv
 event-name and date anchors: matching only a country and hazard category still
 cannot establish same-event attribution. Regional findings remain eligible as
 qualified indirect evidence.
+The model also receives a `directAttributionEligible` prerequisite flag computed
+with the existing same-event guard for each whole chunk. False prohibits a direct
+relationship; true still requires scientific review and exact quoted name/date
+anchors. This is a prompt aid, not an acceptance bypass. Draft instructions allow
+only one selected segment per chunk in each claim, matching the citation validator.
 Mechanisms alone cap evidence at low and influence at none. Multi-source synthesis
 with actual event context may reach medium; high requires reviewed explicit
 same-event findings. Contradiction caps evidence at medium and influence at low
@@ -208,6 +242,12 @@ corrections flag old results stale. Stale passages remain traceable to their
 original versions. Failed generation never replaces a prior valid assessment;
 a service-only timestamped failure marker lets the page distinguish generation
 failure from an assessment that has never been attempted.
+Policy v3 excludes bibliographic titles from model evidence input and checks both
+numeric and written ratios against cited passages. Incomplete sentence endings
+are rejected. A service-only `climate_assessment_reject(uuid,text)` RPC quarantines
+scientifically rejected saved results without deleting immutable history; public
+reads and the connection feed exclude these records. Quarantine does not trigger
+another paid generation attempt for unchanged event/model/policy inputs.
 Publication entries appear once across both evidence groups. A study with a
 verified same-event attribution finding appears in Direct Evidence; any contextual
 findings from that study retain explicit indirect labels and qualifications.

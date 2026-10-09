@@ -157,6 +157,18 @@ test('complete pipeline persists and reuses direct assessments without repeat ge
   assert.equal((await app.service.assess(event)).id, assessed.id); assert.equal(app.metrics().calls, 2);
   await app.service.assess(event, { force: true }); assert.equal(app.metrics().calls, 4);
 });
+test('model receives direct-attribution prerequisites without loosening the final same-event gate', async () => {
+  const results = [citation(), { ...citation(), chunkId: crypto.randomUUID(), content: 'Climate change increases rainfall intensity. This attribution analysis finds a change.' }];
+  const app = application(results); let calls = 0;
+  app.llm.complete = async (_system?: string, data?: unknown) => {
+    const passages = (data as { passages: { chunkId: string; directAttributionEligible: boolean }[] }).passages;
+    assert.equal(passages.find(p => p.chunkId === results[0].chunkId)?.directAttributionEligible, true);
+    assert.equal(passages.find(p => p.chunkId === results[1].chunkId)?.directAttributionEligible, false);
+    return ++calls === 1 ? draft(results[1]) : review(results[1]);
+  };
+  await assert.rejects(app.service.assess(event), /same-event study anchors/);
+  assert.equal(app.metrics().stored, null);
+});
 test('no relevant evidence saves honest insufficient result without generation', async () => {
   const app = application([]); const assessed = await app.service.assess(event);
   assert.equal(assessed.status, 'insufficient_evidence'); assert.equal(assessed.humanInfluence, 'none');

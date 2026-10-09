@@ -179,6 +179,15 @@ findings among events from the last three years, with explicit call limits,
 progressive results, preview reports, and resume support. Publication metadata
 prioritizes candidates; scientific claims still require retrieved passages.
 
+The production globe defaults to saved climate connections. The existing evidence
+Worker selects stored attribution studies and finds matching real events from
+the last three years every ten minutes, assessing eligible events progressively with bounded model and HTTP
+request budgets. Source ingestion retains its four-hour schedule. The frontend
+Worker forwards only saved reads through its EVIDENCE service binding; secrets
+remain in the backend. `pnpm climate:update --refresh-only` performs discovery
+without generation. Production verification and limitations are recorded in the
+assessment implementation report linked above.
+
 ## License
 
 MIT License. See `LICENSE`.

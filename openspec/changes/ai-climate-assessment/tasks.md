@@ -31,4 +31,9 @@
 
 - [x] 7.1 Add service-only catalog/cursor persistence and bounded scheduled processing for all discovered event categories, with overlap exclusion, historical continuation and retained failures; verify SQL and job tests.
 - [x] 7.2 Add a read-only connection feed, default globe integration and honest processing progress; verify HTTP, rendering and frontend checks.
-- [ ] 7.3 Run required checks, apply the additive migration, deploy both existing Workers with secure environment bindings and verify live endpoints and scheduled processing; document actual results and remaining limitations.
+- [x] 7.3 Run required checks, apply the additive migration, deploy both existing Workers with secure environment bindings and verify live endpoints and scheduled processing; document actual results and remaining limitations.
+
+## 8. Study-first scheduled discovery and more demonstration results
+
+- [x] 8.1 Replace chronological cron discovery with persisted scientific-study selection, bounded real-event lookup and three-year verification; retain lookup outcomes, leases, request budgets and unchanged-failure exclusion, and verify regression/SQL tests.
+- [x] 8.2 Run required checks, apply the additive study-discovery migration, deploy the existing backend and execute additional bounded attribution runs; document actual saved demo connections and rejected outcomes.

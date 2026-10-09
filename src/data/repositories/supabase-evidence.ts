@@ -107,6 +107,16 @@ export class SupabaseEvidenceRepository implements EvidenceRepository {
     const result = await this.rpc('evidence_citation', { chunk_id: chunkId });
     return result === null ? null : mapEvidenceCitation(result);
   }
+  async findByChunkIds(chunkIds: string[]): Promise<EvidenceCitation[]> {
+    if (chunkIds.length > 100 || chunkIds.some(id => !uuid.test(id))) throw new EvidenceError('validation', 'Invalid citation batch');
+    if (!chunkIds.length) return [];
+    const result = await this.rpc('evidence_citations', { chunk_ids: [...new Set(chunkIds)] });
+    if (!Array.isArray(result)) throw new EvidenceError('contract', 'Invalid citation batch response');
+    const citations = result.map(mapEvidenceCitation);
+    if (new Set(citations.map(c => c.chunkId)).size !== citations.length || citations.some(c => !chunkIds.includes(c.chunkId)))
+      throw new EvidenceError('contract', 'Unexpected citation batch identity');
+    return citations;
+  }
   startRebuild(profile: ProcessingProfile, owner: string) { return this.control<RebuildStatus>('rebuild-start', { profile, owner }); }
   rebuildStatus() { return this.control<RebuildStatus | null>('rebuild-status'); }
   resumeRebuild(profile: ProcessingProfile, owner: string) { return this.control<RebuildStatus>('rebuild-resume', { profile, owner }); }

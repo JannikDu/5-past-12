@@ -84,7 +84,15 @@ Provider registration numbers SHALL NOT be required as source-text anchors for o
 - **THEN** this does not establish direct same-event attribution; qualified indirect findings remain eligible
 
 ### Requirement: Scheduled catalog processing
-The existing Worker SHALL refresh all discovered EONET categories within three calendar years, progressively backfill history, and assess every eligible record across bounded scheduled runs. A database lease SHALL exclude overlapping runs. Unchanged failed attempts SHALL not trigger generation retries.
+The existing Worker SHALL select stored attribution studies before looking up corresponding real EONET events, verify the three-year event window, persist study-version lookup outcomes and progressively assess matched records. It SHALL NOT fall back to chronological discovery. A database lease SHALL exclude overlapping runs. Unchanged failed attempts SHALL NOT trigger generation retries. Selection overlap SHALL NOT establish attribution or raise assessment levels.
+
+#### Scenario: Study precedes event lookup
+- **WHEN** a scheduled run discovers candidates
+- **THEN** it selects unchecked current study versions first, derives bounded provider queries from their dates and hazard categories, and queues only matching real events within the three-year window
+
+#### Scenario: Study has no corresponding provider event
+- **WHEN** a complete lookup finds no matching eligible event, or the study provides no usable date/category
+- **THEN** that outcome is retained and later studies can be selected; no unrelated chronological fallback or generation occurs
 
 #### Scenario: More events than fit in one invocation
 - **WHEN** the completion budget or runtime limit is reached
@@ -96,4 +104,4 @@ The existing Worker SHALL refresh all discovered EONET categories within three c
 
 #### Scenario: Provider window is saturated
 - **WHEN** EONET fills the configured result limit
-- **THEN** the date window is split or reported incomplete, and the historical cursor does not silently skip unreturned records
+- **THEN** the date window is split or reported incomplete, and that study lookup is not recorded as complete

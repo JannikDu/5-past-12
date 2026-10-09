@@ -10,9 +10,9 @@ const source=(await readFile(original,'utf8')).replace(/from '([^']+)'/g,(match,
 const directory=new URL('../.devswarm-temp/assessment-tests/',import.meta.url);await mkdir(directory,{recursive:true});
 const compiled=new URL(`progress-${process.pid}.mjs`,directory);await writeFile(compiled,ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
 const {default:Progress}=await import(compiled.href) as typeof import('../src/components/ClimateConnectionProgress.tsx');
-test('connection feed renders honest processing totals and ongoing/complete history with no invented attribution',()=>{
+test('connection feed explains study-first discovery without treating the legacy cursor as progress',()=>{
   const feed:ClimateEventFeed={events:[],indicators:[],updatedAt:null,historyEnd:null,counts:{total:12,pending:5,failed:3,insufficient:4,connections:0}};
-  const html=renderToStaticMarkup(createElement(Progress,{feed}));assert.match(html,/5 awaiting assessment/);assert.match(html,/3 assessments failed/);assert.match(html,/4 with insufficient evidence/);assert.match(html,/not probabilities/);assert.match(html,/not started/);
-  assert.match(renderToStaticMarkup(createElement(Progress,{feed:{...feed,historyEnd:'2000-01-01'}})),/discovery is complete/);
-  assert.match(renderToStaticMarkup(createElement(Progress,{feed:{...feed,historyEnd:new Date().toISOString().slice(0,10)}})),/discovery is continuing/);
+  const html=renderToStaticMarkup(createElement(Progress,{feed}));assert.match(html,/5 catalog records without a current assessment/);assert.match(html,/3 assessments failed/);assert.match(html,/4 with insufficient evidence/);assert.match(html,/not probabilities/);assert.match(html,/Scientific studies guide discovery/);
+  assert.equal(renderToStaticMarkup(createElement(Progress,{feed:{...feed,historyEnd:'2000-01-01'}})),html);
+  assert.equal(renderToStaticMarkup(createElement(Progress,{feed:{...feed,historyEnd:new Date().toISOString().slice(0,10)}})),html);
 });

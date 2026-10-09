@@ -1,6 +1,8 @@
 # Climate assessment implementation report
 
-Verified on 2026-10-08. Configuration and operating commands are in
+Initially verified on 2026-10-08. The production deployment and corrections on
+2026-10-09 are recorded below and supersede earlier deployment limitations.
+Configuration and operating commands are in
 [the assessment guide](climate-assessment.md). OpenSpec artifacts are in
 `openspec/changes/ai-climate-assessment/`. Repository documentation remains English.
 
@@ -158,3 +160,218 @@ OpenSpec validation. Actual local workerd reads returned HTTP 200 and flagged
 saved policy-v1 content stale; an authenticated request for a 2022 event returned
 HTTP 400 before generation. No additional migration or production deployment was
 performed.
+
+## Authorized production deployment and runtime correction, 2026-10-09
+
+The user authorized applying migrations, deploying both existing Workers, and
+automatically assessing every discovered eligible event. The following current
+status supersedes the earlier local-only deployment notes.
+
+- Website: https://5-past-12.jannik-ea0.workers.dev
+- Existing backend: https://five-past-twelve-evidence.jannik-ea0.workers.dev
+- Backend version: `ad13b265-6e50-4894-8f14-f6db73874f6b`.
+- Frontend version: `e78b2030-f6d7-41ed-ab79-e96e34637ccf`.
+- Source ingestion remains scheduled every four hours; event discovery and
+  assessment run every ten minutes. No additional Worker or queue was created.
+- Production frontend bindings are only ASSETS and EVIDENCE. Supabase, Featherless
+  and operator secrets remain backend-only. The frontend forwards saved GET reads
+  and excludes generation/job routes. Existing Cloudflare Access protection was
+  preserved; verification used an authenticated Wrangler remote preview with its
+  service binding connected to the actual production backend.
+
+The catalog and publication-guard migrations `20261009010000` and
+`20261009013000` were applied. The additional migration
+`20261009090000_event_job_request_budget.sql` adds service-only batch citation
+reads and lease-checked discovery checkpoints. A final Supabase dry run reported
+the linked database up to date with no pending migrations.
+
+The initial live catalog produced assessments but left its historical cursor and
+last-run summary unchanged. Per-event individual citation requests plus four
+hybrid searches made the HTTP fanout too large for a reliable bounded invocation.
+The correction batches immutable citation reads, counts actual outgoing requests,
+admits an event only with sufficient remaining request capacity, reserves final
+writes, and checkpoints discovery before generation. Its 48-request ceiling fits
+the [Workers Free external-request limit](https://developers.cloudflare.com/workers/platform/limits/).
+Scheduled transport requests do not retry. The six-completion ceiling and
+missing-required-field repair policy remain unchanged. A normal fresh assessment
+generally occupies one ten-minute invocation; unstarted candidates stay pending.
+
+Live verification captured an actual scheduled invocation of the new backend:
+
+| Observation | Result |
+| --- | --- |
+| Cron | `*/10 * * * *`, new backend version |
+| Runtime outcome | `ok`, no runtime exceptions |
+| Wall time | 85.235 seconds |
+| Discovery | 131 eligible snapshots observed in the refreshed windows |
+| Assessment attempt | One event, two model calls |
+| Scientific outcome | `support` rejection; no new publication and no retry |
+| Historical cursor | Advanced from `2026-10-01` to `2026-09-24` |
+| Last-run summary | Saved successfully at `2026-10-09T08:31:29Z` |
+| Lease | Released successfully; an overlapping invocation returned busy |
+| Production service-bound reads | Feed and saved assessment HTTP 200 |
+| Public job route through frontend | HTTP 404 |
+
+The verified snapshot contained 159 discovered records, 121 pending records,
+33 failed attempts, and 11 displayed connections. These counters are not an
+exclusive partition: an earlier valid saved connection can coexist with a later
+failed/interrupted catalog attempt. All 11 connection indicators were Human
+Influence none and Evidence Strength low; two were flagged stale after evidence
+updates. Their indirect findings do not establish event-specific attribution.
+Two representative saved results were manually checked against their passages.
+
+Manual inspection also found that the first policy-v2 bootstrap assessment
+included an unsupported written ratio and an unfinished sentence. Assessment
+`0a7ad099-343a-4f02-97ee-04d1e17bd14f` was quarantined through the service-only
+rejection RPC; its immutable history remains, while public reads and the feed
+exclude it. Policy v3 removes bibliographic titles from scientific model input,
+checks written ratios against selected passages, and rejects unfinished sentence
+endings. Quarantine does not automatically regenerate the failed assessment.
+
+Final checks passed: **179 tests**, zero-warning ESLint, Astro checks across
+94 files with zero errors/warnings/hints, static frontend build, backend dry-run
+bundle and strict OpenSpec validation. The nine built text assets contained none
+of the configured backend secret values. SQL tests cover batch citation identity,
+immutable history, checkpoint lease enforcement, publication quarantine and
+client-role exclusion. Job tests cover request reserves and cursor preservation
+before an interrupted generation.
+
+Remaining limitations are scientific and operational: the historical catalog is
+still backfilling, unchanged failed outputs require explicit operator reassessment,
+and the live corpus has not yet demonstrated medium/high event-specific influence.
+The first successful cron after the correction rejected its scientific output,
+which is expected conservative behavior rather than a runtime failure. General
+mechanisms remain eligible indirect explanations with explicit limitations.
+Model review cannot prove entailment; curated hackathon examples still benefit
+from manual scientific review. No OpenSpec archive or Git commit was created.
+
+## Manual source expansion and targeted events, 2026-10-09
+
+The user requested more scientific sources and targeted major events rather than
+waiting for chronological historical discovery. Before the manual import there
+were 54 sources and 280 current chunks: eight Climate Central sources and 46 WWA
+sources. Only three publications were dated 2024. One existing
+`pnpm evidence:ingest` pass finished in approximately 43 seconds without processing
+failures, adding 12 sources and retaining 13 new/corrected versions. The resulting
+corpus contains **66 sources and 333 current chunks**, including 15 publications
+from 2024. Helene and Milton attribution studies are now stored and embedded.
+
+Narrow historical NASA queries found real records for these selected events,
+all within the three-year window. They were explicitly inserted into the existing
+production catalog without moving the historical cursor:
+
+| Event | EONET ID | Targeted result |
+| --- | --- | --- |
+| Hurricane Helene | `eonet:EONET_11304` | Support validation rejected after two model calls, 52.2 seconds |
+| Tropical Storm Milton | `eonet:EONET_11536` | Support validation rejected after two model calls, 61.1 seconds |
+| EATON Wildfire, Los Angeles, California | `eonet:EONET_12349` | Support validation rejected after two model calls, 35.9 seconds |
+| Super Typhoon Gaemi | `eonet:EONET_8850` | Queued; not generated by the targeted test |
+
+The entire targeted test used six completions, with no retries or publication of
+the rejected outputs. All three failures reported `Direct attribution lacks
+same-event study anchors`. Increasing source count alone therefore does not
+resolve event-identity validation. The automatic cron continues its existing
+historical discovery; this was explicit targeted intake, not a replacement of the
+scheduler's selection policy. A study-first shortlist is useful for demonstration
+coverage but is not a population-wide attribution sample or a reason to raise levels.
+
+A concrete ingestion defect was also verified against the original Helene HTML:
+the opening event/date paragraph is in `.entry-summary`, outside `.entry-content`.
+The parser previously omitted it. `parseWwaArticle` now prepends the lead belonging
+to the same article, excludes related-post leads, and avoids duplicate lead text.
+The four relevant WWA publications were reimported with the corrected parser,
+producing four immutable source versions with real embeddings and zero generative
+calls. The current Helene version was checked to start with the original
+September 26th lead. Earlier citation versions remain available.
+
+After the correction, **180 tests**, ESLint, Astro type checks, frontend build and
+Worker bundle checks passed. The parser correction was deployed to the existing
+evidence Worker as version `da7519d5-6bc0-4a4f-b9c8-0aa4e0e67533`. No new
+migration or automatic reassessment was added. The three
+rejected results remain unpublished until an explicit operator reassessment;
+the newly corrected sources have not been re-evaluated by the model in this test.
+
+## Study-first automatic discovery and additional demo runs, 2026-10-09
+
+The user's follow-up replaces chronological cron selection. The existing ten-minute
+job now selects up to two current stored attribution-study versions first, derives
+bounded date/category NASA queries, and checks matching real events against the
+inclusive three-calendar-year observation window. It never falls back to unrelated
+catalog records. Named events take priority over generic country records. Country
+matches use the study headline/opening event paragraph, avoiding researcher
+affiliations. A one-time reconciliation removed 13 affiliation-only study/event
+links without deleting any events, evidence or saved assessments.
+
+The additive `20261009120000_study_first_event_discovery.sql` migration was applied
+to the previously linked production database. A final dry run reported no pending
+migrations. Service-only lookup records retain matched, no-match, ineligible and
+incomplete outcomes by immutable study version. Completed lookups can be rechecked
+after seven days, incomplete lookups after one hour. Failed/saturated provider
+lookups do not become completed lookups and do not starve later studies. Earlier
+matched links survive an incomplete recheck. The old historical cursor remains
+stored but no longer drives discovery or the progress message.
+
+Eight initial refresh-only invocations used no generative calls. Four subsequent
+cron-style invocations attempted four events using six completions, saving one
+indirect result and rejecting three. An explicitly requested rerun of corrected
+Helene, Milton, Eaton and Gaemi sources used eight completions and rejected all
+four results: three lacked exact same-chunk name/date anchors and Milton failed
+independent scientific review. Rejected outputs were not published.
+
+These real failures motivated clearer model instructions: one segment per chunk
+per claim, exact same-chunk attribution anchors, and a `directAttributionEligible`
+flag computed using the unchanged `sameEvent` prerequisite guard. False prohibits
+a direct relationship; true does not establish support. Regression coverage proves
+the final direct-attribution gate still rejects missing anchors. No evidence
+ceiling, citation rule or scientific acceptance requirement was weakened.
+
+Six further bounded cron-style invocations used twelve completions, saving five
+more indirect assessments and rejecting Senyar. Across these manual assessment
+passes: **14 event attempts, 26 actual completions, six saved connections and eight
+rejected attempts**. The read-only feed increased from 12 to **18 connections**.
+
+| Additional demo event | EONET ID | Human Influence | Evidence Strength |
+| --- | --- | --- | --- |
+| Flood in Netherlands 1103978 | `eonet:EONET_20823` | none | low |
+| Tropical Cyclone Ditwah | `eonet:EONET_16000` | none | low |
+| Tropical Storm Melissa | `eonet:EONET_15819` | none | low |
+| Super Typhoon Man-yi | `eonet:EONET_11906` | none | low |
+| Super Typhoon Usagi | `eonet:EONET_11932` | none | low |
+| Typhoon Toraji | `eonet:EONET_11905` | none | low |
+
+All six were read back with authoritative immutable citations and were not stale.
+They contain qualified background findings, not established attribution of these
+specific events. Model review remains fallible: in particular, wording about
+whether an event has ever been studied or about storm formation probability needs
+expert scrutiny. These examples should not be presented as proven event-specific
+climate contributions. Selecting a study for discovery does not itself establish
+the relationship of a retrieved passage to the event.
+
+Final deployed backend version: `987b9612-9f7b-4158-9db6-4402e8726a08`.
+Final deployed frontend version: `e3afb833-6706-4230-995c-c1e8823b7246`.
+Existing four-hour ingestion and ten-minute event cron schedules remain active.
+Production frontend bindings remain ASSETS and EVIDENCE only. An authenticated
+remote frontend preview using an explicitly empty environment file verified the
+actual production service binding: feed and all six saved reads returned HTTP 200,
+frontend job POST returned 404 and assessment POST returned 405. A scan of ten
+built text assets found none of the configured backend secret values.
+
+An actual scheduled invocation of the final backend was observed at 09:30 UTC
+(11:30 Europe/Berlin). Cloudflare reported `outcome: ok`, no exceptions, 50 ms CPU
+and 80.550 seconds wall time. It selected two study versions first, retained both
+no-match lookups and processed the previously study-matched Kong-rey record using
+two completions. Scientific support validation rejected that assessment, so no
+additional connection was published. The job saved `selection: study-first`,
+released its lease, and left the legacy `2026-09-03` history cursor unchanged.
+
+Final checks: **186 passing tests**, zero-warning ESLint, Astro checks across
+98 files with no errors/warnings/hints, frontend build, backend dry-run bundle,
+strict OpenSpec validation and clean whitespace checks. The final lookup snapshot
+after the manual runs contained 36 checked study versions: 13 matched, 19 no-match, one ineligible and
+three incomplete; 27 distinct provider events retained current study links.
+Legacy catalog counters are retained history, not an exclusive processing partition.
+`pnpm climate:update --runs=6` now provides repeatable sequential bounded runs;
+`--refresh-only` performs only study/event intake. Local readback, generation and
+HTTP reports are under ignored `.devswarm-temp/`, with no credentials or private
+model reasoning. Expert scientific review remains pending. No Git commit or
+OpenSpec archive was created.

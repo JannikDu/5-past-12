@@ -2,9 +2,9 @@ import { isClimateEvent, type ClimateEvent } from '../domain/climate-event.ts';
 import { AssessmentError, assessmentVersion, parseAssessment, type AssessmentRead, type ClimateAssessment } from '../domain/climate-assessment.ts';
 import type { AssessmentModel } from '../data/assessment/featherless.ts';
 import type { AssessmentRepository } from '../data/repositories/assessment-repository.ts';
-import type { EvidenceCitationReader, EvidenceRetrievalService } from './evidence-retrieval.ts';
+import { resolveEvidenceCitations, type EvidenceCitationReader, type EvidenceRetrievalService } from './evidence-retrieval.ts';
 import { assessmentEventContext, assessmentQueries, eventFingerprint, selectAssessmentPassages } from './assessment-context.ts';
-import { parseReview, resolveClaims } from './assessment-validation.ts';
+import { parseReview, resolveClaims, sameEvent } from './assessment-validation.ts';
 import { draftPrompt, reviewPrompt } from './assessment-prompts.ts';
 import { draftOutputSchema, reviewOutputSchema } from './assessment-output-schema.ts';
 import { assessmentPassages, parseSelectedDraft } from './assessment-passages.ts';
@@ -23,7 +23,7 @@ export class DefaultClimateAssessmentService implements ClimateAssessmentService
     if (assessment.eventId !== eventId) throw new AssessmentError('database', 'Assessment event mismatch');
     const citations = assessment.claims.flatMap(c => c.citations);
     const ids = [...new Set(citations.map(c => c.chunkId))];
-    const resolved = new Map(await Promise.all(ids.map(async id => [id, await this.retrieval.findByChunkId(id)] as const)));
+    const resolved = await resolveEvidenceCitations(this.retrieval, ids);
     for (const citation of citations) {
       const original = resolved.get(citation.chunkId);
       if (!original || original.sourceId !== citation.sourceId || original.sourceVersionId !== citation.sourceVersionId ||
@@ -56,12 +56,13 @@ export class DefaultClimateAssessmentService implements ClimateAssessmentService
     const searches = await Promise.all(assessmentQueries(event).map(q => this.retrieval.search(q)));
     const passages = selectAssessmentPassages(searches);
     // Resolve immutable identities before the LLM sees any source material.
-    const authoritative = await Promise.all(passages.map(async p => {
-      const original = await this.retrieval.findByChunkId(p.chunkId);
+    const resolved = await resolveEvidenceCitations(this.retrieval, passages.map(p => p.chunkId));
+    const authoritative = passages.map(p => {
+      const original = resolved.get(p.chunkId);
       if (!original || original.sourceId !== p.sourceId || original.sourceVersionId !== p.sourceVersionId || original.content !== p.content)
         throw new AssessmentError('support', 'Retrieved citation identity mismatch');
       return original;
-    }));
+    });
     const base = { id: crypto.randomUUID(), eventId: event.id, assessedAt: this.now().toISOString(), model: this.llm.model,
       assessmentVersion, eventFingerprint: eventHash, corpusFingerprint: snapshot.fingerprint };
     let assessment: ClimateAssessment = { ...base, summary: 'No applicable scientific evidence was established from the available knowledge base.',
@@ -70,10 +71,14 @@ export class DefaultClimateAssessmentService implements ClimateAssessmentService
     if (authoritative.length) {
       // Bibliographic titles can contain findings absent from a retrieved passage.
       // Keep metadata for server resolution, but let the model see passage text only.
-      const input = { event: assessmentEventContext(event), passages: authoritative.map(({chunkId,sourceId,content,sourceType})=>({chunkId,sourceId,content,sourceType})) };
+      const directEligibility = new Map(authoritative.map(p => [p.chunkId, sameEvent(event, p,
+        {chunkId:p.chunkId,relation:'direct_attribution',eventName:p.content,eventTime:p.content})]));
+      const input = { event: assessmentEventContext(event), passages: authoritative.map(({chunkId,sourceId,content,sourceType})=>
+        ({chunkId,sourceId,content,sourceType,directAttributionEligible:directEligibility.get(chunkId)})) };
       const chunkIds = authoritative.map(p => p.chunkId);
       const selected = assessmentPassages(authoritative);
-      const draft = await this.generateJson(draftPrompt, { ...input, passages: selected.passages.map(({chunkId,sourceId,sourceType,segments})=>({chunkId,sourceId,sourceType,segments})) },
+      const draft = await this.generateJson(draftPrompt, { ...input, passages: selected.passages.map(({chunkId,sourceId,sourceType,segments})=>
+        ({chunkId,sourceId,sourceType,segments,directAttributionEligible:directEligibility.get(chunkId)})) },
         value => parseSelectedDraft(value, selected.selections), draftOutputSchema([...selected.selections.keys()]));
       const review = await this.generateJson(reviewPrompt, { ...input, draft }, parseReview, reviewOutputSchema(chunkIds));
       const verified = resolveClaims(draft, review, event, authoritative);
