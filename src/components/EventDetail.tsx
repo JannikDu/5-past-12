@@ -3,7 +3,7 @@ import ClimateAssessmentPanel from './ClimateAssessmentPanel.tsx';
 import { eventProviders, findEvent } from '../data/events.ts';
 import {
   DataKind, SourceKind, parseEventId,
-  type ClimateEvent, type EventSource,
+  type ClimateEvent, type EventObservation, type EventSource,
 } from '../domain/climate-event.ts';
 
 type DetailState =
@@ -55,9 +55,11 @@ function Report({ event, assessmentApiUrl }: { event: ClimateEvent; assessmentAp
     const source = studies.find((study) => study.id === reference.sourceId && safeUrl(study.url));
     return source ? [{ reference, source }] : [];
   });
-  const magnitudes = event.observations.flatMap(({ time, magnitude }) =>
-    magnitude ? [{ id: JSON.stringify([time, magnitude]), time, magnitude }] : []);
-  const uniqueMagnitudes = [...new Map(magnitudes.map((item) => [item.id, item])).values()];
+  const maximumObservation = event.observations.reduce<EventObservation | null>((maximum, observation) => {
+    if (!observation.magnitude) return maximum;
+    return !maximum?.magnitude || observation.magnitude.value > maximum.magnitude.value
+      ? observation : maximum;
+  }, null);
   const [longitude, latitude] = event.location.marker;
 
   return (
@@ -90,14 +92,12 @@ function Report({ event, assessmentApiUrl }: { event: ClimateEvent; assessmentAp
             <div><dt>Latest observation</dt><dd><Timestamp value={event.time.lastObservedAt} /></dd></div>
             <div><dt>Record status</dt><dd>{event.status}{event.time.closedAt && <span className="ed-note">Provider closure: <Timestamp value={event.time.closedAt} /></span>}</dd></div>
             <div><dt>Severity</dt><dd>{event.severity}<span className="ed-note">No severity is inferred from category or magnitude.</span></dd></div>
-            <div className="ed-metadata-wide"><dt>Reported magnitude · raw</dt><dd>
-              {uniqueMagnitudes.length ? <ul className="ed-magnitudes">{uniqueMagnitudes.map((observation) => (
-                <li key={observation.id}>
-                  <strong>{observation.magnitude.value}{observation.magnitude.unit ? ` ${observation.magnitude.unit}` : ''}</strong>
-                  {observation.magnitude.description && <span> · {observation.magnitude.description}</span>}
-                  <span className="ed-note"><Timestamp value={observation.time} /></span>
-                </li>
-              ))}</ul> : 'No magnitude reported.'}
+            <div className="ed-metadata-wide"><dt>Maximum reported magnitude · raw</dt><dd>
+              {maximumObservation?.magnitude ? <>
+                <strong>{maximumObservation.magnitude.value}{maximumObservation.magnitude.unit ? ` ${maximumObservation.magnitude.unit}` : ''}</strong>
+                {maximumObservation.magnitude.description && <span> · {maximumObservation.magnitude.description}</span>}
+                <span className="ed-note"><Timestamp value={maximumObservation.time} /></span>
+              </> : 'No magnitude reported.'}
             </dd></div>
           </dl>
           <p className="ed-footnote">Observation times describe the record, not necessarily the event’s onset or end.</p>

@@ -81,7 +81,7 @@ export default function EventTypeFilter({ value, categories, onChange }: Props) 
     }
   }
 
-  return <div className="category-filter" ref={rootRef}>
+  return <div className={`category-filter${value !== 'all' ? ' has-filter' : ''}`} ref={rootRef}>
     <button id="event-category" type="button" className="category-trigger" role="combobox"
       aria-label="Filter by event type" aria-haspopup="listbox" aria-expanded={open} aria-controls={`${id}-options`}
       aria-activedescendant={open ? `${id}-option-${activeIndex}` : undefined}

@@ -37,20 +37,20 @@ export function evidenceGroups(assessment: ClimateAssessment, direct: boolean) {
 function SourceEvidence({ assessment, direct }: { assessment: ClimateAssessment; direct: boolean }) {
   const groups = evidenceGroups(assessment, direct);
   return <div className="ca-evidence-group">
-    <h3>{direct ? 'Direct Evidence' : 'Indirect Evidence'}</h3>
+    <h4 className="ca-evidence-heading">{direct ? 'Direct Evidence' : 'Indirect Evidence'}</h4>
     {!groups.length && <p className="ed-empty">{direct
       ? 'No direct event-specific attribution evidence was found in the available knowledge base.'
       : 'No applicable indirect scientific evidence was established.'}</p>}
     {!direct && !!groups.length && <p className="ed-footnote">These findings explain possible connections; they do not establish attribution for this specific event.</p>}
     {groups.map(({ source, findings }) => <article className="ca-source" id={`evidence-${source.sourceId}`} key={source.sourceId}>
-      <h4>{source.sourceTitle}</h4>
+      <h5>{source.sourceTitle}</h5>
       <p className="ca-source-meta">{source.publisher}{source.publishedAt && <> · <time dateTime={source.publishedAt}>{new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(source.publishedAt))}</time></>}</p>
-      {findings.map(({ statement, citation }) => <div key={JSON.stringify([citation.chunkId, statement, citation.passage, citation.relation])}>
+      {findings.map(({ statement, citation }) => <div className="ca-source-finding" key={JSON.stringify([citation.chunkId, statement, citation.passage, citation.relation])}>
         <span className="ca-relation">{relationship[citation.relation]}</span>
         {direct && citation.relation !== 'direct_attribution' && <p className="ed-footnote">This contextual finding is indirect support within a study that also investigates this event.</p>}
         <p>{statement}</p><blockquote>{citation.passage}</blockquote>
       </div>)}
-      <a href={source.sourceUrl} target="_blank" rel="noopener noreferrer">View source <span aria-hidden="true">↗</span><span className="ed-sr-only"> (opens in a new tab)</span></a>
+      <a className="ca-source-link" href={source.sourceUrl} target="_blank" rel="noopener noreferrer">View source <span aria-hidden="true">↗</span><span className="ed-sr-only"> (opens in a new tab)</span></a>
     </article>)}
   </div>;
 }
@@ -59,7 +59,7 @@ export function AssessmentContents({ assessment, stale, generationFailed = false
     {generationFailed && <p className="ca-notice" role="status">The most recent reassessment failed. This is the last validated saved assessment.</p>}
     {stale && <p className="ca-notice" role="status">This saved assessment is outdated because the event, evidence corpus, or assessment policy changed. Reassessment is needed; passages below refer to the retained source versions.</p>}
     <div className="ca-levels">
-      {(['humanInfluence', 'evidenceStrength'] as const).map(key => <div className="ca-level" key={key}>
+      {(['humanInfluence', 'evidenceStrength'] as const).map(key => <div className={`ca-level ca-level-${key}`} key={key}>
         <h3>{key === 'humanInfluence' ? 'Human Influence' : 'Evidence Strength'}</h3>
         <strong className={`ca-level-value ca-level-${assessment[key]}`}>{assessment[key]}</strong>
         <p>{meanings[key][assessment[key]]}</p>
@@ -67,7 +67,7 @@ export function AssessmentContents({ assessment, stale, generationFailed = false
     </div>
     <p className="ed-footnote">These levels are not quantified probabilities. Evidence strength describes scientific support and applicability.</p>
     {assessment.status === 'insufficient_evidence' && <p className="ca-notice">Insufficient scientific evidence to assess this event. Missing evidence does not establish zero climate influence.</p>}
-    <p>{assessment.summary}</p>
+    <p className="ca-summary">{assessment.summary}</p>
     <h3>Immediate cause</h3><p>{assessment.immediateCause ?? 'The immediate cause has not been established by the retrieved scientific evidence.'}</p>
     <h3>Climate Connection</h3><p>{assessment.climateConnection ?? 'No event-specific climate connection was established from the available evidence.'}</p>
     {!!assessment.claims.length && <><h3>Scientific Findings</h3><ol className="ed-findings ca-findings">{assessment.claims.map(claim => <li key={`${claim.statement}-${claim.type}`}>
@@ -93,7 +93,7 @@ export function AssessmentState({ state }: { state: PanelState }) {
     generation_failed: 'Assessment generation failed. No validated assessment is available; no scientific result or attribution level has been invented.',
   };
   return <><div className="ca-levels">{['Human Influence', 'Evidence Strength'].map(label => <div className="ca-level" key={label}><h3>{label}</h3><strong className="ca-level-value ca-level-unavailable">Unavailable</strong></div>)}</div>
-    <p role="status">{messages[state.kind]}</p>
+    <p className="ca-notice" role="status">{messages[state.kind]}</p>
     <div className="ca-scientific-evidence"><h3>Direct Evidence</h3><p className="ed-empty">Event-specific attribution has not been verified for display.</p><h3>Indirect Evidence</h3><p className="ed-empty">Scientific passages will appear when a validated assessment is available.</p></div></>;
 }
 export default function ClimateAssessmentPanel({ event, apiUrl }: { event: ClimateEvent; apiUrl: string }) {
@@ -101,12 +101,12 @@ export default function ClimateAssessmentPanel({ event, apiUrl }: { event: Clima
   useEffect(() => {
     const controller = new AbortController();
     async function load(): Promise<PanelState> {
-      if (!apiUrl || event.provenance.dataKind === DataKind.Demo) return { kind: 'unavailable' };
-      const base = new URL(apiUrl, window.location.origin);
+      if (event.provenance.dataKind === DataKind.Demo) return { kind: 'unavailable' };
+      const base = new URL(apiUrl || '/', window.location.origin);
       if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) throw new Error('Invalid assessment endpoint');
       const url = new URL('/api/climate-assessments', base);
       url.searchParams.set('eventId', event.id); url.searchParams.set('eventFingerprint', await eventFingerprint(event));
-      const response = await fetch(url, { signal: controller.signal, credentials: 'omit' }); if (!response.ok) throw new Error('Assessment unavailable');
+      const response = await fetch(url, { signal: controller.signal, credentials: 'same-origin' }); if (!response.ok) throw new Error('Assessment unavailable');
       const value: unknown = await response.json();
       if (!value || typeof value !== 'object' || !('kind' in value)) throw new Error('Invalid response');
       if (value.kind === 'unavailable' || value.kind === 'invalid_citations' || value.kind === 'generation_failed') return { kind: value.kind };

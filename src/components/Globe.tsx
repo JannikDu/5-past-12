@@ -1,9 +1,30 @@
 ﻿import { useId, useRef, type KeyboardEvent, type PointerEvent } from 'react';
-import type { ClimateEvent } from '../domain/climate-event.ts';
+import { EventCategory, type ClimateEvent } from '../domain/climate-event.ts';
 import {
   constrainView, graticule, INITIAL_VIEW, landDots, project, type GlobeView,
 } from '../lib/globe.ts';
 import Icon from './Icon.tsx';
+
+const categoryColors: Record<EventCategory, string> = {
+  [EventCategory.Wildfire]: '#c76b24',
+  [EventCategory.Storm]: '#7956a5',
+  [EventCategory.Flood]: '#2878b8',
+  [EventCategory.Drought]: '#94643e',
+  [EventCategory.Heat]: '#c43e3e',
+  [EventCategory.Temperature]: '#b34d7a',
+  [EventCategory.Ice]: '#248b9b',
+  [EventCategory.Volcano]: '#963b2f',
+  [EventCategory.Earthquake]: '#8b597b',
+  [EventCategory.Landslide]: '#66513c',
+  [EventCategory.Dust]: '#9b7b28',
+  [EventCategory.Snow]: '#5e86ac',
+  [EventCategory.Other]: '#6b7065',
+};
+
+// Use the first specific category consistently for multi-category event markers.
+function markerCategory(event: ClimateEvent): EventCategory {
+  return event.categories.find((category) => category !== EventCategory.Other) ?? EventCategory.Other;
+}
 
 interface Props {
   events: readonly ClimateEvent[];
@@ -18,6 +39,7 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
   const dragRef = useRef<{ pointerId: number; x: number; y: number; view: GlobeView; scale: number } | null>(null);
   const visibleEvents = events.map((event) => ({ event, point: project(event.location.marker, view) }))
     .filter(({ point }) => point.visible);
+  const categories = [...new Set(events.map(markerCategory))].sort();
   const rotate = (longitude: number, latitude: number) => onRotate(constrainView({
     longitude: view.longitude + longitude, latitude: view.latitude + latitude,
   }));
@@ -90,6 +112,7 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
       </g>
       {visibleEvents.map(({ event, point }) => <g key={event.id} data-event-marker="true"
         className={`event-marker${selectedId === event.id ? ' is-selected' : ''}`}
+        style={{ color: categoryColors[markerCategory(event)] }}
         transform={`translate(${point.x}, ${point.y})`} role="button" tabIndex={0}
         aria-label={`${event.title}. ${event.categories.join(', ')}. Show event summary.`}
         aria-pressed={selectedId === event.id}
@@ -114,6 +137,12 @@ export default function Globe({ events, selectedId, view, onRotate, onSelect }: 
     </div>
     <p className="globe-help" id={`${id}-help`}>Drag to explore <span aria-hidden="true">·</span> Arrow keys to rotate<span className="sr-only">. Home to reset. Press Escape to close a selection.</span></p>
     <p className="hemisphere-note">{visibleEvents.length} / {events.length} markers in view<span className="sr-only">. Explore every event in the list below.</span></p>
+    {categories.length > 0 && <ul className="globe-legend" aria-label="Event marker colors">
+      {categories.map((category) => <li key={category}>
+        <span className="legend-dot" style={{ backgroundColor: categoryColors[category] }} aria-hidden="true" />
+        {category}
+      </li>)}
+    </ul>}
   </div>;
 }
 

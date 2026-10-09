@@ -38,8 +38,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
     async function load() {
       try {
         if(mode==='assessed') {
-          if(!assessmentApiUrl)throw new Error('The climate connection feed is not configured.');
-          const base=new URL(assessmentApiUrl);if(!['https:','http:'].includes(base.protocol)||base.username||base.password)throw new Error('Invalid connection feed endpoint.');
+          const base=new URL(assessmentApiUrl || '/',window.location.origin);if(!['https:','http:'].includes(base.protocol)||base.username||base.password)throw new Error('Invalid connection feed endpoint.');
           const response=await fetch(new URL('/api/climate-events',base),{signal:controller.signal,headers:{Accept:'application/json'}});
           if(!response.ok)throw new Error('The climate connection feed could not be loaded.');
           const connections=parseClimateEventFeed(await response.json());
@@ -100,6 +99,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
         <p className="eyebrow">A planet in perspective</p>
         <h1 id="page-title">5 past <span>12<span className="title-period" aria-hidden="true">.</span></span></h1>
         <p className="hero-slogan">The crisis isn’t coming.<br />It’s happening now.</p>
+        <p className="hero-description">Connect real-world climate events with scientific evidence about climate change.</p>
         <a className="explore-link" href="#observations">Explore the events <Icon name="arrow-down" /></a>
       </div>
 
