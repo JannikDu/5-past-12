@@ -26,3 +26,10 @@ The page SHALL handle loading, unavailable assessment, insufficient evidence, fa
 #### Scenario: Missing citation
 - **WHEN** a saved citation cannot resolve to its immutable passage
 - **THEN** the assessment is unavailable with an explanation and no fabricated scientific content
+
+### Requirement: Persisted climate connection feed
+The globe SHALL default to a read-only feed of validated completed assessments with cited direct or indirect findings, with no minimum influence threshold. Historical records within three calendar years SHALL remain discoverable independently of the live 30-day feed. Pending, insufficient and failed totals SHALL explain processing progress without fabricated connections.
+
+#### Scenario: Historical connection is saved
+- **WHEN** the scheduled job saves a validated finding for a historical event
+- **THEN** the event becomes available in the connection feed without a frontend rebuild or generation on page load

@@ -68,10 +68,12 @@ export class DefaultClimateAssessmentService implements ClimateAssessmentService
       immediateCause: null, climateConnection: null, claims: [], humanInfluence: 'none', evidenceStrength: 'none', status: 'insufficient_evidence',
       uncertainties: ['The available knowledge base and bounded searches may omit relevant research. Missing attribution evidence does not establish an absence of climate influence.'] };
     if (authoritative.length) {
-      const input = { event: assessmentEventContext(event), passages: authoritative };
+      // Bibliographic titles can contain findings absent from a retrieved passage.
+      // Keep metadata for server resolution, but let the model see passage text only.
+      const input = { event: assessmentEventContext(event), passages: authoritative.map(({chunkId,sourceId,content,sourceType})=>({chunkId,sourceId,content,sourceType})) };
       const chunkIds = authoritative.map(p => p.chunkId);
       const selected = assessmentPassages(authoritative);
-      const draft = await this.generateJson(draftPrompt, { ...input, passages: selected.passages },
+      const draft = await this.generateJson(draftPrompt, { ...input, passages: selected.passages.map(({chunkId,sourceId,sourceType,segments})=>({chunkId,sourceId,sourceType,segments})) },
         value => parseSelectedDraft(value, selected.selections), draftOutputSchema([...selected.selections.keys()]));
       const review = await this.generateJson(reviewPrompt, { ...input, draft }, parseReview, reviewOutputSchema(chunkIds));
       const verified = resolveClaims(draft, review, event, authoritative);

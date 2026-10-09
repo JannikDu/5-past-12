@@ -13,6 +13,8 @@ Event details currently expose evidence gaps but cannot explain scientific conne
 - Add offline pipeline, provider, database, HTTP, and rendered UI tests and a manual demonstration command.
 - Add bounded sequential connection discovery across at most three calendar years, with progressive results, saved-result reuse, and an explicit model-call budget. Validated direct or indirect findings count as connections regardless of influence level.
 - Normalize event identity anchors without requiring provider registration numbers for named events. Keep country-only records and historical analogues indirect unless same-event identity is established.
+- Automatically refresh a persisted three-year EONET catalog and assess every discovered event progressively using the existing Worker's cron, shared leases, bounded calls and retained failures.
+- Publish validated direct or indirect connections to the globe and deploy both existing Workers with backend-only credentials.
 
 ## Capabilities
 

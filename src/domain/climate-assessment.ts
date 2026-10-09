@@ -5,7 +5,7 @@ export const assessmentLevels = ['none', 'low', 'medium', 'high'] as const;
 export const claimTypes = ['direct_finding', 'supported_synthesis', 'general_mechanism'] as const;
 export type AssessmentLevel = typeof assessmentLevels[number];
 export type ClaimType = typeof claimTypes[number];
-export const assessmentVersion = 'climate-assessment-v2';
+export const assessmentVersion = 'climate-assessment-v3';
 export interface AssessmentCitation {
   chunkId: string; sourceId: string; sourceVersionId: string; relation: EvidenceType; passage: string;
   sourceTitle: string; publisher: string; publishedAt: string | null; sourceUrl: string;
@@ -62,6 +62,19 @@ export function keys(row: Record<string, unknown>, allowed: string[]): void {
   // Validators explicitly construct the allowed output shape. Unknown fields
   // are discarded, including model-supplied metadata and private reasoning.
 }
+/** Surface-number checks complement review; titles are never supporting passages. */
+export function validateCitedText(texts:string[],passages:string[]) {
+  const support=passages.join(' ');const numeric=(value:string)=>value.match(/\b\d+(?:[.,]\d+)?(?:%|\b)/g)??[];
+  const numbers=new Set(numeric(support));
+  for(const value of texts) {
+    if(numeric(value).some(number=>!numbers.has(number)))throw new AssessmentError('support','Scientific number absent from cited passages');
+    if(/\b(?:twice|doubl(?:e|ed|ing)|two[- ]?fold)\b/i.test(value)&&!(/\b(?:twice|doubl(?:e|ed|ing)|two[- ]?fold)\b|factor\s+(?:of\s+)?(?:about\s+)?2\b/i.test(support)))
+      throw new AssessmentError('support','Scientific ratio absent from cited passages');
+    if(/\b(?:tripled|three[- ]?fold)\b/i.test(value)&&!(/\b(?:tripled|three[- ]?fold)\b|factor\s+(?:of\s+)?(?:about\s+)?3\b/i.test(support)))
+      throw new AssessmentError('support','Scientific ratio absent from cited passages');
+    if(/\b(?:in|of|for|and|because|the|a|an|by|to|with)\s*$/i.test(value))throw new AssessmentError('support','Incomplete scientific sentence');
+  }
+}
 export function parseAssessment(value: unknown): ClimateAssessment {
   const row = object(value);
   const eventId = text(row.eventId, 240); if (!parseEventId(eventId)) throw new AssessmentError('validation', 'Invalid event ID');
@@ -79,7 +92,9 @@ export function parseAssessment(value: unknown): ClimateAssessment {
         publisher: text(r.publisher), publishedAt: r.publishedAt as string | null, sourceUrl };
     });
     if (!citations.length) throw new AssessmentError('support', 'Claim has no citations');
-    return { type: choice(c.type, claimTypes), statement: text(c.statement), explanation: text(c.explanation), citations, limitations: strings(c.limitations) };
+    const claim={ type: choice(c.type, claimTypes), statement: text(c.statement), explanation: text(c.explanation), citations, limitations: strings(c.limitations) };
+    validateCitedText([claim.statement,claim.explanation,...claim.limitations],citations.map(c=>c.passage));
+    return claim;
   });
   const result: ClimateAssessment = { id: uuid(row.id), eventId, assessedAt, claims,
     summary: text(row.summary), immediateCause: row.immediateCause === null ? null : text(row.immediateCause),

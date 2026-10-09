@@ -26,3 +26,9 @@
 - [x] 6.1 Normalize named-event identity without administrative numbers, preserve country-only/analogue rejection, enforce the three-year window for new assessments, and verify matching and boundary tests.
 - [x] 6.2 Add validated historical EONET queries and bounded sequential discovery with hard model-call limits, cached reuse, progressive outcomes and direct/indirect matches; verify budget, continuation, deduplication and reporting tests.
 - [x] 6.3 Run required checks, document measured runtime and operating commands, and verify a bounded live discovery run without publishing unvalidated findings.
+
+## 7. Automatic processing and authorized production deployment
+
+- [x] 7.1 Add service-only catalog/cursor persistence and bounded scheduled processing for all discovered event categories, with overlap exclusion, historical continuation and retained failures; verify SQL and job tests.
+- [x] 7.2 Add a read-only connection feed, default globe integration and honest processing progress; verify HTTP, rendering and frontend checks.
+- [ ] 7.3 Run required checks, apply the additive migration, deploy both existing Workers with secure environment bindings and verify live endpoints and scheduled processing; document actual results and remaining limitations.

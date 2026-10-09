@@ -8,7 +8,7 @@ Astro currently builds static pages with React fetching public EONET records. Th
 
 **Goals:** A small secure pipeline that operators can precompute for real events and readers can inspect; additive persistence with verified references and conservative defaults.
 
-**Non-Goals:** New Workers, framework migrations, queues, autonomous agents, geocoding, background reassessment, public expensive generation, and automatic production deployment.
+**Non-Goals:** New Workers, framework migrations, queues, autonomous agents, geocoding, public expensive generation, and repeated automatic retries of rejected scientific responses.
 
 ## Decisions
 
@@ -26,6 +26,9 @@ Astro currently builds static pages with React fetching public EONET records. Th
 9. Remove numeric provider IDs from named-event identity comparison, normalize punctuation and diacritics, and accept full or abbreviated source months. Numeric IDs are not scientific identity requirements. Country-only unnamed fires still lack a distinctive event identity and remain indirect. Date compatibility, actual attribution passages, scientific review, and conservative levels remain mandatory. New assessments reject events whose first reported observation lies outside the three-year window; older scientific publications remain eligible evidence. Increment the assessment policy version to flag old saved results for explicit reassessment.
 
 ## Risks / Trade-offs
+
+10. The user authorized production deployment and automatic processing on 2026-10-09. Add a service-only event catalog and singleton lease/cursor. Every ten minutes refresh recent reports and one historical week, splitting saturated windows rather than silently truncating records. Process all discovered categories progressively, with a six-completion budget, a twelve-minute run limit and ninety-second scheduled completion timeout. Persist the attempted event fingerprint, policy and model before generation so failed/interrupted responses do not automatically repeat. Event/policy/model changes can make records pending; corpus changes flag results stale without repeatedly regenerating the whole catalog.
+11. The default globe view reads validated completed assessments with cited findings, including indirect findings with influence none. Keep the separate live and demo views, and show aggregate pending/insufficient/failed progress. Public reads never invoke providers, embeddings or generation. Deploy both existing Workers and preserve backend-only credentials.
 
 - Model-based semantic review can miss errors → exact reference checks, conservative ceilings, explicit AI label, and human review of demo assessments.
 - Missing place labels and named-event/date anchors reduce direct recall → retain useful indirect findings and explain missing specificity; never guess location.

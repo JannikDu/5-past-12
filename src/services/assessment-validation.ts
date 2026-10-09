@@ -1,5 +1,5 @@
 import type { ClimateEvent } from '../domain/climate-event.ts';
-import { array, assessmentLevels, AssessmentError, choice, claimTypes, keys, object, strings, text, uuid,
+import { array, assessmentLevels, AssessmentError, choice, claimTypes, keys, object, strings, text, uuid, validateCitedText,
   type AssessmentLevel, type ClimateClaim } from '../domain/climate-assessment.ts';
 import { evidenceTypes, type EvidenceCitation, type EvidenceType } from '../domain/evidence.ts';
 
@@ -106,11 +106,7 @@ export function resolveClaims(draft: AssessmentDraft, review: AssessmentReview, 
         sourceTitle: original.sourceTitle, publisher: original.publisher, sourceUrl: original.sourceUrl,
         publishedAt: original.publishedAt, relation: relationship.relation, passage: selected.passage };
     });
-    const supportText = claim.citations.map(c => c.passage).join(' ');
-    const numericTokens = (value: string) => value.match(/\b\d+(?:[.,]\d+)?(?:%|\b)/g) ?? [];
-    const suppliedNumbers = new Set(numericTokens(supportText));
-    if ([claim.statement, claim.explanation, ...claim.limitations].some(v => numericTokens(v).some(n => !suppliedNumbers.has(n))))
-      throw new AssessmentError('support', 'Scientific number absent from cited passages');
+    validateCitedText([claim.statement,claim.explanation,...claim.limitations],claim.citations.map(c=>c.passage));
     const direct = citations.some(c => c.relation === 'direct_attribution');
     const context = citations.some(c => c.relation === 'event_context');
     const analogue = citations.some(c => c.relation === 'analogue_attribution');

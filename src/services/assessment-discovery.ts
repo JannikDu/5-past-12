@@ -8,7 +8,7 @@ import { assessmentWindow, withinAssessmentWindow } from './assessment-window.ts
 export class BudgetedAssessmentModel implements AssessmentModel {
   readonly model: string;
   private requests = 0;
-  constructor(private readonly inner: AssessmentModel, readonly limit: number) {
+  constructor(private readonly inner: AssessmentModel, readonly limit: number, private readonly requestAllowed=()=>true) {
     if (!Number.isInteger(limit) || limit < 0 || limit > 60) throw new TypeError('Model-call budget must be an integer from 0 to 60');
     this.model = inner.model;
   }
@@ -16,6 +16,7 @@ export class BudgetedAssessmentModel implements AssessmentModel {
   get remaining() { return this.limit - this.requests; }
   async complete(system: string, data: unknown, schema?: Record<string, unknown>): Promise<unknown> {
     if (!this.remaining) throw new AssessmentError('budget', 'Discovery model-call budget exhausted');
+    if (!this.requestAllowed()) throw new AssessmentError('budget','Scheduled assessment runtime budget exhausted');
     this.requests++;
     return this.inner.complete(system, data, schema);
   }

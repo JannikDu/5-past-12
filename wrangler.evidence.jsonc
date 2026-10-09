@@ -3,8 +3,8 @@
   "name": "five-past-twelve-evidence",
   "main": "workers/evidence-ingestion.ts",
   "compatibility_date": "2026-10-07",
-  "workers_dev": false,
-  "triggers": { "crons": ["0 */4 * * *"] },
+  "workers_dev": true,
+  "triggers": { "crons": ["0 */4 * * *", "*/10 * * * *"] },
   "observability": { "enabled": true },
   "vars": {
     "FEATHERLESS_EMBEDDING_MODEL": "Qwen/Qwen3-Embedding-4B",
@@ -12,6 +12,8 @@
     "EVIDENCE_MAX_PAGES_PER_PROVIDER": "10",
     "CLIMATE_ASSESSMENT_MODEL": "Qwen/Qwen3-32B",
     "CLIMATE_ASSESSMENT_TEMPERATURE": "0.1",
-    "CLIMATE_ASSESSMENT_MAX_TOKENS": "4000"
+    "CLIMATE_ASSESSMENT_MAX_TOKENS": "4000",
+    "CLIMATE_EVENT_MAX_MODEL_CALLS": "6",
+    "CLIMATE_ASSESSMENT_ALLOWED_ORIGINS": "https://5-past-12.jannik-ea0.workers.dev,http://localhost:4321,http://127.0.0.1:4321"
   }
 }

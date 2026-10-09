@@ -3,12 +3,17 @@ import { parseEventId, DataKind, type ClimateEvent } from '../domain/climate-eve
 import { AssessmentError, hash, type AssessmentRead, type ClimateAssessment } from '../domain/climate-assessment.ts';
 import { EvidenceError } from '../domain/evidence.ts';
 import { createAssessmentReader, createAssessmentServices } from './assessment.ts';
+import { createEventCatalog, createEventJob } from './climate-events.ts';
+import type { ClimateEventFeed } from '../domain/climate-event-feed.ts';
+import type { EventJobSummary } from '../services/climate-event-job.ts';
 
 type Env = Record<string, string | undefined>;
 export interface AssessmentHttpDependencies {
   read(env: Env, eventId: string, fingerprint?: string): Promise<AssessmentRead>;
   assess(env: Env, event: ClimateEvent, force: boolean): Promise<ClimateAssessment>;
   findEvent(id: string): Promise<ClimateEvent | null>;
+  feed?(env:Env):Promise<ClimateEventFeed>;
+  runJob?(env:Env,options:{refreshOnly:boolean}):Promise<EventJobSummary>;
 }
 const defaults: AssessmentHttpDependencies = {
   read: (env, id, fingerprint) => createAssessmentReader(env).read(id, fingerprint),
@@ -16,7 +21,7 @@ const defaults: AssessmentHttpDependencies = {
 };
 export async function assessmentHttp(request: Request, env: Env, deps = defaults): Promise<Response> {
   const url = new URL(request.url);
-  if (url.pathname !== '/api/climate-assessments') return Response.json({ error: 'Not found' }, { status: 404 });
+  if (!['/api/climate-assessments','/api/climate-events','/api/climate-event-jobs'].includes(url.pathname)) return Response.json({ error: 'Not found' }, { status: 404 });
   const origin = request.headers.get('Origin');
   const allowed = (env.CLIMATE_ASSESSMENT_ALLOWED_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean);
   const headers = new Headers({ 'Cache-Control': 'no-store', Vary: 'Origin' });
@@ -33,6 +38,8 @@ export async function assessmentHttp(request: Request, env: Env, deps = defaults
   if (!['GET', 'POST'].includes(request.method)) { headers.set('Allow', 'GET, POST, OPTIONS'); return respond({ error: 'Method unavailable' }, 405); }
   try {
     if (request.method === 'GET') {
+      if(url.pathname==='/api/climate-events')return respond(await (deps.feed?deps.feed(env):createEventCatalog(env).feed()));
+      if(url.pathname==='/api/climate-event-jobs')return respond({error:'Operator POST required'},405);
       const ids = url.searchParams.getAll('eventId'); const hashes = url.searchParams.getAll('eventFingerprint');
       if (ids.length !== 1 || ids[0].length > 240 || !parseEventId(ids[0]) || hashes.length > 1) return respond({ error: 'Invalid event ID or fingerprint' }, 400);
       const fingerprint = hashes.length ? hash(hashes[0]) : undefined;
@@ -45,6 +52,12 @@ export async function assessmentHttp(request: Request, env: Env, deps = defaults
     const digest = async (v: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
     const [expected, supplied] = await Promise.all([digest(`Bearer ${token}`), digest(authorization)]);
     if (expected.reduce((difference, byte, i) => difference | (byte ^ supplied[i]), 0) !== 0) return respond({ error: 'Operator authorization required' }, 401);
+    if(url.pathname==='/api/climate-events')return respond({error:'Read-only event feed'},405);
+    if(url.pathname==='/api/climate-event-jobs') {
+      if(!['refresh','run'].includes(url.searchParams.get('action')??''))return respond({error:'Specify action=refresh or action=run'},400);
+      const options={refreshOnly:url.searchParams.get('action')==='refresh'};
+      return respond(await (deps.runJob?deps.runJob(env,options):createEventJob(env).run(options)));
+    }
     if (!request.headers.get('Content-Type')?.startsWith('application/json')) return respond({ error: 'JSON required' }, 415);
     // Cap actual streamed bytes as well as the optional Content-Length header.
     if (Number(request.headers.get('Content-Length')) > 2048) return respond({ error: 'Request too large' }, 413);

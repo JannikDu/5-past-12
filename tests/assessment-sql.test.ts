@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { evidenceDatabase } from './helpers/evidence-database.ts';
 import { chunker, profile, source, vector } from './helpers/evidence-fixtures.ts';
-import { citation, draft, event, review } from './helpers/assessment-fixtures.ts';
+import { citation, draft, event as fixtureEvent, review } from './helpers/assessment-fixtures.ts';
+import { DataKind } from '../src/domain/climate-event.ts';
+import { SupabaseClimateEventCatalog } from '../src/data/repositories/climate-event-catalog.ts';
+import { eventFingerprint } from '../src/services/assessment-context.ts';
 import { SupabaseAssessmentRepository } from '../src/data/repositories/supabase-assessment.ts';
 import { DefaultEvidenceRetrievalService } from '../src/services/evidence-retrieval.ts';
 import { DefaultClimateAssessmentService } from '../src/services/climate-assessment.ts';
@@ -13,6 +16,7 @@ import type { ClimateAssessment } from '../src/domain/climate-assessment.ts';
 test('additive assessment migration: real SQL persistence, immutable citation history, rollback and security', async t => {
   const local = await evidenceDatabase(undefined, 'extensions', true); t.after(() => local.db.close());
   const { db, repository: evidence } = local;
+  const event={...fixtureEvent,id:'eonet:EONET_CEDAR_TEST',provenance:{...fixtureEvent.provenance,provider:'eonet',externalId:'EONET_CEDAR_TEST',dataKind:DataKind.Reported}};
   const repository = new SupabaseAssessmentRepository({ url: 'https://database.test', secretKey: 'fake' }, { fetch: local.fetch, retries: 0 });
   const generation = await evidence.ensureGeneration(profile);
   const lease = (await evidence.acquireLease('assessment-fixture', crypto.randomUUID(), 600))!;
@@ -41,6 +45,12 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
   assert.equal((await db.query('select * from public.climate_assessment_citations')).rows.length, 1);
   await repository.save(assessment); // Replay after a lost successful HTTP response is safe.
   assert.equal((await db.query('select * from public.climate_assessments')).rows.length, 1);
+  const catalog=new SupabaseClimateEventCatalog({url:'https://database.test',secretKey:'fake'},{fetch:local.fetch,retries:0});
+  const jobLease=(await catalog.acquire())!;const eventHash=await eventFingerprint(event);
+  await catalog.upsert(jobLease,[{event,fingerprint:eventHash,priority:1}]);
+  await catalog.begin(jobLease,event.id,eventHash,llm.model);await catalog.finish(jobLease,event.id,eventHash,llm.model,assessment);
+  const connectionFeed=await catalog.feed();assert.equal(connectionFeed.events[0].id,event.id);assert.equal(connectionFeed.indicators[0].humanInfluence,'high');assert.equal(connectionFeed.counts.connections,1);
+  await catalog.release(jobLease,{},undefined,true);
 
   await t.test('citation mismatches, unknown IDs and duplicate citations atomically roll back', async () => {
     for (const mutate of [
@@ -72,6 +82,7 @@ test('additive assessment migration: real SQL persistence, immutable citation hi
     const chunkId = assessment.claims[0].citations[0].chunkId;
     await store({ ...original, normalizedText: `${original.normalizedText} Correction: the estimate is uncertain.` });
     assert.equal((await repository.latest(event.id))!.stale, true);
+    assert.equal((await catalog.feed()).indicators[0].stale,true);
     const read = await service.read(event.id); assert.ok(read.kind === 'available' && read.stale);
     assert.equal((await evidence.findByChunkId(chunkId))!.content, original.normalizedText);
     const stale = { ...assessment, id: crypto.randomUUID() }; await assert.rejects(repository.save(stale));

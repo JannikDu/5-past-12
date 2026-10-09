@@ -23,6 +23,7 @@
     "evidence:evaluate": "node --env-file-if-exists=.env --experimental-transform-types scripts/evaluate-evidence.ts",
     "climate:assess": "node --env-file-if-exists=.env --experimental-transform-types scripts/assess-event.ts",
     "climate:discover": "node --env-file-if-exists=.env --experimental-transform-types scripts/discover-assessments.ts",
+    "climate:update": "node --env-file-if-exists=.env --experimental-transform-types scripts/update-climate-events.ts",
     "climate:check-json": "node --env-file-if-exists=.env --experimental-transform-types scripts/check-assessment-json.ts",
     "evidence:worker:check": "wrangler deploy --config wrangler.evidence.jsonc --dry-run --outdir .devswarm-temp/evidence-worker"
   },

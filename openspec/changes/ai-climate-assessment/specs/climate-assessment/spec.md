@@ -40,7 +40,7 @@ Human Influence and Evidence Strength SHALL independently use none, low, medium,
 - **THEN** influence remains none and evidence is at most low
 
 ### Requirement: Secure reusable persistence
-Generation SHALL run server-side with protected credentials and explicit operator initiation. Saved results SHALL be reused across page loads. Assessment JSON and citations SHALL persist atomically against immutable records. Changed events, source corrections, and corpus changes SHALL be detectable and explicit reassessment SHALL be supported.
+Generation SHALL run server-side with protected credentials and explicit operator initiation or the authorized scheduled catalog job. Saved results SHALL be reused across page loads. Assessment JSON and citations SHALL persist atomically against immutable records. Changed events, source corrections, and corpus changes SHALL be detectable and explicit reassessment SHALL be supported.
 
 #### Scenario: Saved result is read
 - **WHEN** a public detail page requests an existing assessment
@@ -82,3 +82,18 @@ Provider registration numbers SHALL NOT be required as source-text anchors for o
 #### Scenario: Only country and category match
 - **WHEN** an unnamed event and a study share only a country and hazard category
 - **THEN** this does not establish direct same-event attribution; qualified indirect findings remain eligible
+
+### Requirement: Scheduled catalog processing
+The existing Worker SHALL refresh all discovered EONET categories within three calendar years, progressively backfill history, and assess every eligible record across bounded scheduled runs. A database lease SHALL exclude overlapping runs. Unchanged failed attempts SHALL not trigger generation retries.
+
+#### Scenario: More events than fit in one invocation
+- **WHEN** the completion budget or runtime limit is reached
+- **THEN** untouched events remain pending and a later cron resumes processing
+
+#### Scenario: Rejected scientific response
+- **WHEN** assessment fails scientific validation
+- **THEN** its event attempt is retained as failed and subsequent unchanged runs do not regenerate it
+
+#### Scenario: Provider window is saturated
+- **WHEN** EONET fills the configured result limit
+- **THEN** the date window is split or reported incomplete, and the historical cursor does not silently skip unreturned records

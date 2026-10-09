@@ -2,7 +2,7 @@
 
 The `ai-climate-assessment` OpenSpec change adds a server-only assessment pipeline
 and a static frontend panel. It reuses the evidence Worker's scheduled ingestion
-and adds `/api/climate-assessments`. No production SQL or Worker deployment is
+and adds `/api/climate-assessments` and `/api/climate-events`. No production SQL or Worker deployment is
 performed by the commands that generate assessments.
 
 ## Setup and demonstration
@@ -21,6 +21,8 @@ pnpm climate:assess eonet:<actual-event-id>
 pnpm climate:assess eonet:<actual-event-id> --force
 pnpm climate:discover --preview --max-model-calls=2 --target=1
 pnpm climate:discover --max-model-calls=6 --target=1 --category=storm
+pnpm climate:update --refresh-only
+pnpm climate:update
 ```
 
 Select real namespaced IDs from the globe. The command resolves the actual EONET
@@ -69,19 +71,24 @@ New individual assessments and discovery exclude events whose first reported
 observation is outside the inclusive three-year UTC-day window, including old
 ongoing events. The current globe feed also applies this policy. Scientific
 publications older than three years remain eligible evidence. The assessment
-policy version is now `climate-assessment-v2`, flagging older saved results stale
+policy version is now `climate-assessment-v3`, flagging older saved results stale
 without deleting their history.
 
-For the public website, deploy the **existing** evidence Worker with a route on
-your backend domain. `workers_dev` remains disabled in its current configuration;
-configure the route explicitly in Cloudflare or Wrangler. Set backend bindings
+For the public website, deploy the **existing** evidence Worker using
+`wrangler.evidence.jsonc`, which enables its existing workers.dev endpoint. Set backend bindings
 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `FEATHERLESS_API_KEY`, the existing embedding
 model/profile, and an operator-only `CLIMATE_ASSESSMENT_ADMIN_TOKEN` using Wrangler
 secret commands with `--config wrangler.evidence.jsonc`. Set
 `CLIMATE_ASSESSMENT_ALLOWED_ORIGINS` to exact frontend origins separated by commas.
 Local development uses `http://localhost:4321` and ignored `.dev.vars`.
 
-Build Astro with `PUBLIC_CLIMATE_ASSESSMENT_API_URL` equal to the backend origin.
+Build Astro with `PUBLIC_CLIMATE_ASSESSMENT_API_URL` equal to the website origin
+when using the existing frontend Worker in `wrangler.jsonc`. Its EVIDENCE service
+binding forwards read-only `/api/climate-assessments` and `/api/climate-events`
+internally to the existing evidence Worker, preserving Cloudflare Access and
+avoiding a separate browser login for the backend. Generation and job endpoints
+are not forwarded publicly. A directly accessible backend origin remains usable
+for local development with its configured exact allowed origins.
 This is the only assessment setting passed to React; it contains no credentials.
 For local development, use `pnpm exec wrangler dev --config wrangler.evidence.jsonc`
 and `pnpm dev`. Missing configuration shows an unavailable assessment.
@@ -92,6 +99,42 @@ does not fetch EONET, embed queries or call a model, and flags changed event/cor
 or policy snapshots. POST uses an operator bearer token and JSON
 `{"eventId":"eonet:...","force":true}`. It resolves provider data on the server;
 clients cannot submit fabricated events. Keep the token out of the frontend.
+
+## Automatic event processing
+
+The evidence Worker now has two independent schedules: source ingestion every
+four hours and event processing every ten minutes. Event processing refreshes
+recent EONET reports and one historical week across all categories in the
+three-year window. It splits provider windows that fill the 200-record limit;
+a saturated single day or exhausted request budget is reported incomplete and
+does not advance the historical cursor. Invalid provider records retain the
+provider's existing skip behavior. A service-only catalog stores real normalized
+events separately from scientific assessments. It is not an attribution source.
+
+Every discovered eligible event is attempted progressively, not only positive
+matches. Each invocation allows at most six actual model requests by default,
+including missing-field repairs. It refuses later calls when its twelve-minute
+runtime budget cannot accommodate the ninety-second scheduled model timeout.
+It stops starting events after nine minutes, leaving untouched candidates pending.
+A fifteen-minute singleton lease excludes overlapping runs, including manual
+`climate:update` calls. Failed/interrupted attempts persist their fingerprint,
+policy and model before generation and are not regenerated automatically for
+unchanged inputs. Event or policy/model changes can reopen records. Corpus updates
+flag saved content stale but do not repeatedly regenerate the whole catalog.
+
+The default globe reads `/api/climate-events`, refreshing saved data every minute.
+It displays up to 200 latest validated completed connections with cited findings,
+including indirect findings with Human Influence none. The separate Live reports
+view retains the last-30-days NASA feed. Aggregate discovered/pending/insufficient/
+failed counts explain progress; the selected connections are not a population
+estimate of attribution frequency. Empty states never invent scientific findings.
+
+`pnpm climate:update` runs the same bounded job against the configured database.
+`--refresh-only` discovers and saves event snapshots without generation. Protected
+backend POST `/api/climate-event-jobs?action=refresh` or `action=run` requires the
+operator token; it is not available through the public frontend proxy. Existing
+explicit per-event reassessment remains available when an operator elects to
+retry a failed scientific response or refresh evidence.
 
 ## Scientific checks and limitations
 

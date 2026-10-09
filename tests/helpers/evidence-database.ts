@@ -16,7 +16,11 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
     await db.exec(await readFile(new URL('../../supabase/migrations/20261006164800_create_climate_evidence_knowledge_base.sql', import.meta.url), 'utf8'));
     await beforeAdditions?.(db);
     await db.exec(await readFile(new URL('../../supabase/migrations/20261007120000_evidence_ingestion_retrieval.sql', import.meta.url), 'utf8'));
-    if (assessments) await db.exec(await readFile(new URL('../../supabase/migrations/20261008130000_climate_assessments.sql', import.meta.url), 'utf8'));
+    if (assessments) {
+      await db.exec(await readFile(new URL('../../supabase/migrations/20261008130000_climate_assessments.sql', import.meta.url), 'utf8'));
+      await db.exec(await readFile(new URL('../../supabase/migrations/20261009010000_climate_event_catalog.sql', import.meta.url), 'utf8'));
+      await db.exec(await readFile(new URL('../../supabase/migrations/20261009013000_assessment_publication_guards.sql', import.meta.url), 'utf8'));
+    }
   } catch (error) { await db.close(); throw error; }
   const diagnostics: string[] = [];
   const fetcher: typeof fetch = async (input, init) => {
@@ -31,6 +35,7 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
       climate_assessment_latest: { sql: 'select public.climate_assessment_latest($1) result', args: [body.event_id] },
       climate_assessment_save: { sql: 'select public.climate_assessment_save($1::jsonb) result', args: [JSON.stringify(body.payload)] },
       climate_assessment_failed: { sql: 'select public.climate_assessment_failed($1) result', args: [body.event_id] },
+      climate_event_control: {sql:'select public.climate_event_control($1,$2::jsonb) result',args:[body.action,JSON.stringify(body.payload)]},
     };
     const query = signatures[name]; if (!query) throw new Error('Unexpected test RPC');
     try {
@@ -42,7 +47,7 @@ export async function evidenceDatabase(beforeAdditions?: (db: PGlite) => Promise
       return Response.json(result.rows[0].result);
     } catch (error) {
       diagnostics.push(`${name}: ${(error as Error).message}`);
-      if (!/(evidence:|assessment:|climate_assessment_citations_pkey)/.test((error as Error).message)) console.error('Unexpected local SQL error:', (error as Error).message);
+      if (!/(evidence:|assessment:|catalog:|climate_assessment_citations_pkey)/.test((error as Error).message)) console.error('Unexpected local SQL error:', (error as Error).message);
       return Response.json({ message: (error as Error).message }, { status: 400 });
     }
   };
