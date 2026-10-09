@@ -99,6 +99,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
         <p className="eyebrow">A planet in perspective</p>
         <h1 id="page-title">5 past <span>12<span className="title-period" aria-hidden="true">.</span></span></h1>
         <p className="hero-slogan">The crisis isn’t coming.<br />It’s happening now.</p>
+        <p className="hero-description">Connect real-world climate events with scientific evidence about climate change.</p>
         <a className="explore-link" href="#observations">Explore the events <Icon name="arrow-down" /></a>
       </div>
 
