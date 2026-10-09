@@ -101,6 +101,10 @@ pnpm dev
   (up to 60 records, including open and closed records).
 - Choose **Demo** for eight explicitly fictional events; live failures never
   silently substitute fixtures.
+- Demo events include simulated climate connections covering **none**, **low**,
+  **medium**, and **high** human influence, with separate evidence-strength levels
+  in the list, event card, and detail page. These local scenarios need no backend
+  and contain no real scientific claims or citations.
 - The monochrome interface pairs a standalone globe with an animated feed total,
   search, and event-type filters. Reduced-motion preferences are respected.
 - Drag the globe or use arrow keys and rotation buttons. Hover, focus, or click a

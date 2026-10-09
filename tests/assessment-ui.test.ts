@@ -7,6 +7,9 @@ import ts from 'typescript';
 import { citation, draft, event, id, review } from './helpers/assessment-fixtures.ts';
 import { resolveClaims } from '../src/services/assessment-validation.ts';
 import { assessmentVersion, type ClimateAssessment } from '../src/domain/climate-assessment.ts';
+import { demoAssessments, getDemoAssessment } from '../src/data/demo-assessments.ts';
+import { demoEvents } from '../src/data/demo-events.ts';
+import { DataKind } from '../src/domain/climate-event.ts';
 
 // Native Node transforms TypeScript, but not JSX. Compile the actual UI for SSR
 // assertions with the project's existing compiler; leave artifacts in ignored temp.
@@ -16,7 +19,7 @@ const source = (await readFile(original, 'utf8')).replace(/from '([^']+)'/g, (ma
 const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
 const directory = new URL('../.devswarm-temp/assessment-tests/', import.meta.url); await mkdir(directory, { recursive: true });
 const compiled = new URL(`panel-${process.pid}.mjs`, directory); await writeFile(compiled, output);
-const { AssessmentContents, AssessmentState, evidenceGroups } = await import(compiled.href) as typeof import('../src/components/ClimateAssessmentPanel.tsx');
+const { default: ClimateAssessmentPanel, AssessmentContents, AssessmentState, evidenceGroups } = await import(compiled.href) as typeof import('../src/components/ClimateAssessmentPanel.tsx');
 function assessment(): ClimateAssessment {
   return { ...resolveClaims(draft(), review(), event, [citation()]), id: id(500), eventId: event.id,
     summary: draft().claims[0].statement, immediateCause: null, climateConnection: draft().claims[0].statement,
@@ -59,4 +62,31 @@ test('every empty/failure lifecycle state displays unavailable labels without fa
   const value = assessment(); value.claims = []; value.status = 'insufficient_evidence'; value.humanInfluence = 'none'; value.evidenceStrength = 'none';
   const html = renderToStaticMarkup(createElement(AssessmentContents, { assessment: value, stale: false }));
   assert.match(html, /Insufficient scientific evidence/); assert.match(html, /No direct event-specific/);
+});
+
+test('all fictional events render local simulated connections with every influence level', () => {
+  assert.deepEqual(new Set(demoAssessments.map(value => value.eventId)), new Set(demoEvents.map(value => value.id)));
+  assert.deepEqual(new Set(demoAssessments.map(value => value.humanInfluence)), new Set(['none', 'low', 'medium', 'high']));
+  for (const event of demoEvents) {
+    const value = getDemoAssessment(event);
+    assert.ok(value, event.id);
+    const html = renderToStaticMarkup(createElement(ClimateAssessmentPanel, { event, apiUrl: '' }));
+    assert.match(html, /Simulated Climate Assessment/);
+    assert.match(html, /fictional examples, not validated scientific findings/);
+    assert.ok(html.includes(`ca-level-value ca-level-${value.humanInfluence}">${value.humanInfluence}</strong>`));
+    assert.ok(html.includes(`ca-level-value ca-level-${value.evidenceStrength}">${value.evidenceStrength}</strong>`));
+    assert.match(html, /Evidence scenario/);
+    assert.match(html, /No real study, source passage, or citation/);
+    assert.doesNotMatch(html, /Loading saved|AI-assisted assessment|View source|href="https?:/);
+  }
+  assert.ok(demoAssessments.some(value => value.humanInfluence !== value.evidenceStrength));
+});
+
+test('simulated assessment lookup cannot substitute fixtures for a reported event', () => {
+  const reported = { ...demoEvents[0], provenance: { ...demoEvents[0].provenance, dataKind: DataKind.Reported } };
+  assert.equal(getDemoAssessment(reported), null);
+  assert.equal(getDemoAssessment({ ...demoEvents[0], id: 'demo:unknown' }), null);
+  const html = renderToStaticMarkup(createElement(ClimateAssessmentPanel, { event: reported, apiUrl: '' }));
+  assert.match(html, /Loading saved climate assessment/);
+  assert.doesNotMatch(html, /Simulated Climate Assessment|Fictional demo assessment/);
 });

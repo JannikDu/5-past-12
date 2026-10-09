@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { parseAssessment, type AssessmentCitation, type AssessmentLevel, type AssessmentRead, type ClimateAssessment } from '../domain/climate-assessment.ts';
 import { DataKind, type ClimateEvent } from '../domain/climate-event.ts';
+import { getDemoAssessment, type DemoClimateAssessment } from '../data/demo-assessments.ts';
 import { eventFingerprint } from '../services/assessment-context.ts';
 
 const meanings: Record<'humanInfluence' | 'evidenceStrength', Record<AssessmentLevel, string>> = {
@@ -19,6 +20,40 @@ const meanings: Record<'humanInfluence' | 'evidenceStrength', Record<AssessmentL
 };
 const relationship = { direct_attribution: 'Event-specific attribution', event_context: 'Observed event context', analogue_attribution: 'Comparable event attribution', general_context: 'Regional research or physical mechanism' };
 const claimLabel = { direct_finding: 'Reported scientific finding', supported_synthesis: 'Supported synthesis', general_mechanism: 'General mechanism' };
+
+function AssessmentLevels({ humanInfluence, evidenceStrength }: Pick<ClimateAssessment, 'humanInfluence' | 'evidenceStrength'>) {
+  const levels = { humanInfluence, evidenceStrength };
+  return <>
+    <div className="ca-levels">
+      {(['humanInfluence', 'evidenceStrength'] as const).map(key => <div className={`ca-level ca-level-${key}`} key={key}>
+        <h3>{key === 'humanInfluence' ? 'Human Influence' : 'Evidence Strength'}</h3>
+        <strong className={`ca-level-value ca-level-${levels[key]}`}>{levels[key]}</strong>
+        <p>{meanings[key][levels[key]]}</p>
+      </div>)}
+    </div>
+    <p className="ed-footnote">These levels are not quantified probabilities. Evidence strength describes scientific support and applicability.</p>
+  </>;
+}
+
+function DemoAssessmentContents({ assessment }: { assessment: DemoClimateAssessment }) {
+  return <>
+    <p className="ca-notice" role="status">Simulated climate connection. All explanations and evidence scenarios below are fictional examples, not validated scientific findings.</p>
+    <AssessmentLevels humanInfluence={assessment.humanInfluence} evidenceStrength={assessment.evidenceStrength} />
+    <p className="ca-summary">{assessment.summary}</p>
+    <h3>Immediate cause · simulated</h3><p>{assessment.immediateCause}</p>
+    <h3>Climate Connection · simulated</h3><p>{assessment.climateConnection ?? 'No climate connection is assigned in this fictional scenario. Missing evidence does not establish that influence is physically absent.'}</p>
+    <div className="ca-scientific-evidence">
+      <h3>Evidence scenario · simulated</h3>
+      <span className="ca-relation">{assessment.evidenceType === 'direct' ? 'Direct attribution example' : assessment.evidenceType === 'indirect' ? 'Indirect connection example' : 'Missing evidence example'}</span>
+      <p>{assessment.evidenceScenario}</p>
+      <p className="ed-footnote">No real study, source passage, or citation is attached to this demo.</p>
+    </div>
+    <h3>Uncertainties &amp; Limitations</h3>
+    <ul className="ca-limitations">{assessment.uncertainties.map(uncertainty => <li key={uncertainty}>{uncertainty}</li>)}</ul>
+    <p className="ed-footnote">Fictional demo assessment · Prepared locally for the prototype.</p>
+  </>;
+}
+
 type Finding = { statement: string; citation: AssessmentCitation };
 export function evidenceGroups(assessment: ClimateAssessment, direct: boolean) {
   const groups = new Map<string, { source: AssessmentCitation; findings: Finding[] }>();
@@ -58,14 +93,7 @@ export function AssessmentContents({ assessment, stale, generationFailed = false
   return <>
     {generationFailed && <p className="ca-notice" role="status">The most recent reassessment failed. This is the last validated saved assessment.</p>}
     {stale && <p className="ca-notice" role="status">This saved assessment is outdated because the event, evidence corpus, or assessment policy changed. Reassessment is needed; passages below refer to the retained source versions.</p>}
-    <div className="ca-levels">
-      {(['humanInfluence', 'evidenceStrength'] as const).map(key => <div className={`ca-level ca-level-${key}`} key={key}>
-        <h3>{key === 'humanInfluence' ? 'Human Influence' : 'Evidence Strength'}</h3>
-        <strong className={`ca-level-value ca-level-${assessment[key]}`}>{assessment[key]}</strong>
-        <p>{meanings[key][assessment[key]]}</p>
-      </div>)}
-    </div>
-    <p className="ed-footnote">These levels are not quantified probabilities. Evidence strength describes scientific support and applicability.</p>
+    <AssessmentLevels humanInfluence={assessment.humanInfluence} evidenceStrength={assessment.evidenceStrength} />
     {assessment.status === 'insufficient_evidence' && <p className="ca-notice">Insufficient scientific evidence to assess this event. Missing evidence does not establish zero climate influence.</p>}
     <p className="ca-summary">{assessment.summary}</p>
     <h3>Immediate cause</h3><p>{assessment.immediateCause ?? 'The immediate cause has not been established by the retrieved scientific evidence.'}</p>
@@ -97,6 +125,8 @@ export function AssessmentState({ state }: { state: PanelState }) {
     <div className="ca-scientific-evidence"><h3>Direct Evidence</h3><p className="ed-empty">Event-specific attribution has not been verified for display.</p><h3>Indirect Evidence</h3><p className="ed-empty">Scientific passages will appear when a validated assessment is available.</p></div></>;
 }
 export default function ClimateAssessmentPanel({ event, apiUrl }: { event: ClimateEvent; apiUrl: string }) {
+  const isDemo = event.provenance.dataKind === DataKind.Demo;
+  const demoAssessment = getDemoAssessment(event);
   const [state, setState] = useState<PanelState>({ kind: 'loading' }); const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
@@ -118,10 +148,10 @@ export default function ClimateAssessmentPanel({ event, apiUrl }: { event: Clima
     load().then(result => { if (!controller.signal.aborted) setState(result); }).catch(() => { if (!controller.signal.aborted) setState({ kind: 'error' }); });
     return () => controller.abort();
   }, [event, apiUrl, attempt]);
-  return <section className="ed-section ca-assessment" aria-labelledby="assessment-title" aria-busy={state.kind === 'loading'}>
-    <div className="ed-section-heading"><span aria-hidden="true">02</span><h2 id="assessment-title">Climate Assessment</h2></div>
-    <div className="ca-content"><AssessmentState state={state} />
-      {state.kind === 'error' && <button type="button" className="ed-retry" onClick={() => setAttempt(a => a + 1)}>Retry loading assessment</button>}
+  return <section className="ed-section ca-assessment" aria-labelledby="assessment-title" aria-busy={!isDemo && state.kind === 'loading'}>
+    <div className="ed-section-heading"><span aria-hidden="true">02</span><h2 id="assessment-title">{isDemo ? 'Simulated Climate Assessment' : 'Climate Assessment'}</h2></div>
+    <div className="ca-content">{demoAssessment ? <DemoAssessmentContents assessment={demoAssessment} /> : <AssessmentState state={isDemo ? { kind: 'unavailable' } : state} />}
+      {!isDemo && state.kind === 'error' && <button type="button" className="ed-retry" onClick={() => setAttempt(a => a + 1)}>Retry loading assessment</button>}
     </div>
   </section>;
 }
