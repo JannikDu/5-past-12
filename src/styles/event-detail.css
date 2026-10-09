@@ -41,7 +41,6 @@
 .ed-metadata-wide { grid-column: 1 / -1; }
 .ed-note { display: block; font-size: 10px; color: var(--ed-muted); margin-top: 5px; }
 .event-detail .ed-footnote { margin-bottom: 0; font-size: 10px; color: var(--ed-muted); }
-.ed-magnitudes { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
 .ed-evidence-status { display: flex; align-items: center; gap: 9px; font-size: 12px; }
 .ed-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ed-muted); }
 .ed-findings { padding-left: 20px; font-size: 13px; }
