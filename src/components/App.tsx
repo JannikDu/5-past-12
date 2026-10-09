@@ -38,8 +38,7 @@ export default function App({assessmentApiUrl=''}: {assessmentApiUrl?:string}) {
     async function load() {
       try {
         if(mode==='assessed') {
-          if(!assessmentApiUrl)throw new Error('The climate connection feed is not configured.');
-          const base=new URL(assessmentApiUrl);if(!['https:','http:'].includes(base.protocol)||base.username||base.password)throw new Error('Invalid connection feed endpoint.');
+          const base=new URL(assessmentApiUrl || '/',window.location.origin);if(!['https:','http:'].includes(base.protocol)||base.username||base.password)throw new Error('Invalid connection feed endpoint.');
           const response=await fetch(new URL('/api/climate-events',base),{signal:controller.signal,headers:{Accept:'application/json'}});
           if(!response.ok)throw new Error('The climate connection feed could not be loaded.');
           const connections=parseClimateEventFeed(await response.json());

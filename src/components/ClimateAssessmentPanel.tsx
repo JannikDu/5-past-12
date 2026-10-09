@@ -101,12 +101,12 @@ export default function ClimateAssessmentPanel({ event, apiUrl }: { event: Clima
   useEffect(() => {
     const controller = new AbortController();
     async function load(): Promise<PanelState> {
-      if (!apiUrl || event.provenance.dataKind === DataKind.Demo) return { kind: 'unavailable' };
-      const base = new URL(apiUrl, window.location.origin);
+      if (event.provenance.dataKind === DataKind.Demo) return { kind: 'unavailable' };
+      const base = new URL(apiUrl || '/', window.location.origin);
       if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password) throw new Error('Invalid assessment endpoint');
       const url = new URL('/api/climate-assessments', base);
       url.searchParams.set('eventId', event.id); url.searchParams.set('eventFingerprint', await eventFingerprint(event));
-      const response = await fetch(url, { signal: controller.signal, credentials: 'omit' }); if (!response.ok) throw new Error('Assessment unavailable');
+      const response = await fetch(url, { signal: controller.signal, credentials: 'same-origin' }); if (!response.ok) throw new Error('Assessment unavailable');
       const value: unknown = await response.json();
       if (!value || typeof value !== 'object' || !('kind' in value)) throw new Error('Invalid response');
       if (value.kind === 'unavailable' || value.kind === 'invalid_citations' || value.kind === 'generation_failed') return { kind: value.kind };

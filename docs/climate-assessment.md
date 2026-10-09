@@ -83,16 +83,18 @@ secret commands with `--config wrangler.evidence.jsonc`. Set
 `CLIMATE_ASSESSMENT_ALLOWED_ORIGINS` to exact frontend origins separated by commas.
 Local development uses `http://localhost:4321` and ignored `.dev.vars`.
 
-Build Astro with `PUBLIC_CLIMATE_ASSESSMENT_API_URL` equal to the website origin
-when using the existing frontend Worker in `wrangler.jsonc`. Its EVIDENCE service
+The frontend defaults to its own origin when using the existing frontend Worker
+in `wrangler.jsonc`. Its EVIDENCE service
 binding forwards read-only `/api/climate-assessments` and `/api/climate-events`
 internally to the existing evidence Worker, preserving Cloudflare Access and
 avoiding a separate browser login for the backend. Generation and job endpoints
 are not forwarded publicly. A directly accessible backend origin remains usable
 for local development with its configured exact allowed origins.
-This is the only assessment setting passed to React; it contains no credentials.
+`PUBLIC_CLIMATE_ASSESSMENT_API_URL` optionally overrides the endpoint at build time;
+use `/` to explicitly select the website origin. Same-origin reads retain the
+browser's Cloudflare Access session. This setting contains no credentials.
 For local development, use `pnpm exec wrangler dev --config wrangler.evidence.jsonc`
-and `pnpm dev`. Missing configuration shows an unavailable assessment.
+and `pnpm dev`, with `PUBLIC_CLIMATE_ASSESSMENT_API_URL=http://localhost:8787`.
 
 GET `/api/climate-assessments?eventId=eonet%3A...&eventFingerprint=<hash>` reads only
 saved content and immutable citations. It requires only database configuration,
