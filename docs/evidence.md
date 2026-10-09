@@ -118,7 +118,13 @@ exclude credentials, full source texts and vectors.
   tags. The page is a sampling, and older anchors may disappear. Unavailable
   alerts are reported while their retained text/citations survive. Four-hour
   checks refresh publications daily; they do not create daily numeric CSI data.
-- [WWA RSS](https://www.worldweatherattribution.org/feed/): feed head is checked
+- [WWA RSS](https://www.worldweatherattribution.org/feed/): canonical article
+  extraction retains both the same-article
+  `.entry-summary` lead and `.entry-content`, because the lead can contain the
+  event name, location and date. Related-post summaries are excluded and repeated
+  lead text is deduplicated. The manual source-coverage follow-up is recorded in
+  [the assessment report](climate-assessment-implementation.md#manual-source-expansion-and-targeted-events-2026-10-09).
+  The feed head is checked
   first; distinct `?paged=N` pages gradually backfill eligible HTML publications
   with no one-year age cutoff. Feed content establishes eligibility; selected
   publications use canonical official article HTML for both discovery and rechecks.

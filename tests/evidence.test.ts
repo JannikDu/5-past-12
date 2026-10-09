@@ -173,6 +173,19 @@ test('WWA distinguishes current attribution from observations and references to 
   assert.deepEqual(ocean.eventTypes, [EventCategory.Temperature]);
 });
 
+test('WWA retains the same-article lead containing event identity without importing related summaries',async()=>{
+  const lead='<div class="entry-summary"><p>On 26 September 2024, Hurricane Helene made landfall.</p></div>';
+  const content='<p>In this attribution study we compare climate models and find heavier rainfall due to climate change.</p>';
+  const page=`<html><body><article><h1>Hurricane Helene rainfall attribution</h1>${lead}<div class="entry-content">${content}</div></article><article><div class="entry-summary">Unrelated hurricane event</div></article></body></html>`;
+  const parsed=parseWwaArticle(page,wwaUrl);const normalized=(await new WorldWeatherAttributionEvidenceNormalizer().normalize(parsed))!;
+  assert.ok(normalized.normalizedText.startsWith('On 26 September 2024, Hurricane Helene'));
+  assert.match(normalized.normalizedText,/heavier rainfall/);assert.doesNotMatch(normalized.normalizedText,/Unrelated hurricane/);
+  const duplicated=parseWwaArticle(page.replace(content,`${lead}${content}`),wwaUrl);
+  assert.equal(htmlText(duplicated.html).match(/On 26 September 2024/g)?.length,1);
+  const noLead=parseWwaArticle(page.replace(lead,''),wwaUrl);
+  assert.doesNotMatch(htmlText(noLead.html),/Unrelated hurricane/);
+});
+
 test('WWA discovery and article rechecks normalize to the same source identity and metadata', async () => {
   const article = wwaArticle().replace('</head>', '<meta property="article:modified_time" content="2020-08-04T12:00:00Z"></head>');
   const provider = new WorldWeatherAttributionEvidenceProvider({ fetch: async input => new Response(String(input) === wwaUrl ? article : String(input).includes('paged=') ? wwaFeed([]) : wwaFeed()) });

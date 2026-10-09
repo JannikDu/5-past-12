@@ -1,8 +1,12 @@
-import type { ClimateEvent } from '../../domain/climate-event.ts';
+import type { ClimateEvent, EventCategory } from '../../domain/climate-event.ts';
 
 export interface EventQuery {
   /** Positive integer lookback in days; providers document and reject unsupported ranges. */
   days?: number;
+  /** Explicit UTC-day range, supplied together and mutually exclusive with days. */
+  start?: string;
+  end?: string;
+  category?: EventCategory;
   /** Positive integer result cap; providers document and reject unsupported ranges. */
   limit?: number;
   signal?: AbortSignal;

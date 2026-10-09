@@ -22,7 +22,13 @@ export class EvidenceHttpClient {
       const timeout = AbortSignal.timeout(timeoutMs);
       const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
       try {
-        const response = await fetcher(url, { ...init, signal });
+        // workerd rejects redirect: 'error'. Manual mode plus an explicit guard
+        // preserves the same policy without forwarding credentials to redirects.
+        const rejectRedirects = init.redirect === 'error';
+        const response = await fetcher(url, { ...init, ...(rejectRedirects ? { redirect: 'manual' as const } : {}), signal });
+        if (rejectRedirects && [301, 302, 303, 307, 308].includes(response.status)) {
+          await response.body?.cancel(); throw new EvidenceError('http', 'HTTP redirect blocked');
+        }
         if ([408, 429, 500, 502, 503, 504].includes(response.status) && attempt < retries) {
           await response.body?.cancel();
           const retry = response.headers.get('retry-after');

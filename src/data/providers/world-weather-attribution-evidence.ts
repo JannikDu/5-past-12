@@ -40,7 +40,12 @@ export function parseWwaArticle(html: string, url: string): WwaPublication {
   const articleUrl = officialUrl(canonical || url);
   const requested = new URL(officialUrl(url)); const declared = new URL(articleUrl);
   if (requested.pathname.replace(/\/$/, '') !== declared.pathname.replace(/\/$/, '') || requested.search !== declared.search) throw new EvidenceError('contract', 'WWA canonical URL conflicts with publication identity');
-  return { guid: url, url: articleUrl, title: normalizeText(title.textContent ?? ''), html: body.innerHTML, fullArticle: true,
+  // WWA places the event's name/date in a separate lead paragraph on some posts.
+  // Scope it to this article so related-post summaries cannot become evidence.
+  const summary = body.closest('article,.post')?.querySelector('.entry-summary');
+  const lead = summary && !summary.contains(body) ? htmlText(summary.innerHTML) : '';
+  const articleHtml = lead && !htmlText(body.innerHTML).startsWith(lead) ? `${summary!.innerHTML}\n${body.innerHTML}` : body.innerHTML;
+  return { guid: url, url: articleUrl, title: normalizeText(title.textContent ?? ''), html: articleHtml, fullArticle: true,
     publishedAt: dateOrNull(document.querySelector('meta[property="article:published_time"]')?.getAttribute('content') ?? document.querySelector('time[datetime]')?.getAttribute('datetime') ??
       (document.querySelector('article h4')?.textContent ? `${document.querySelector('article h4')!.textContent} UTC` : null)),
     updatedAt: dateOrNull(document.querySelector('meta[property="article:modified_time"]')?.getAttribute('content')),

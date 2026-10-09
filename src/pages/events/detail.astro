@@ -5,7 +5,7 @@ import '../../styles/event-detail.css';
 ---
 
 <Layout title="Event detail | 5 Past 12">
-  <EventDetail client:load />
+  <EventDetail client:load assessmentApiUrl={import.meta.env.PUBLIC_CLIMATE_ASSESSMENT_API_URL ?? ''} />
   <noscript>
     <p class="event-detail-noscript">
       JavaScript is needed to read the event ID and load this report.

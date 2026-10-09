@@ -5,7 +5,14 @@ import type { EvidenceRepository } from '../data/repositories/evidence-repositor
 import { stableJson } from './evidence-identity.ts';
 
 export interface EvidenceRetrievalService { search(query: EvidenceQuery): Promise<EvidenceSearchResult[]> }
-export interface EvidenceCitationReader { findByChunkId(chunkId: string): ReturnType<EvidenceRepository['findByChunkId']> }
+export interface EvidenceCitationReader {
+  findByChunkId(chunkId: string): ReturnType<EvidenceRepository['findByChunkId']>;
+  findByChunkIds?: EvidenceRepository['findByChunkIds'];
+}
+export async function resolveEvidenceCitations(reader: EvidenceCitationReader, ids: string[]) {
+  const citations = reader.findByChunkIds ? await reader.findByChunkIds(ids) : (await Promise.all(ids.map(id => reader.findByChunkId(id)))).filter(c => c !== null);
+  return new Map(citations.map(c => [c.chunkId, c]));
+}
 export function validateQuery(query: EvidenceQuery): EvidenceQuery {
   if (!query || typeof query.text !== 'string' || !query.text.trim()) throw new EvidenceError('validation', 'Evidence query text must be nonblank');
   const limit = query.limit ?? 10;
@@ -30,4 +37,7 @@ export class DefaultEvidenceRetrievalService implements EvidenceRetrievalService
     return this.repository.search(query, vectors[0], generation.id, this.publicationCap);
   }
   findByChunkId(id: string) { return this.repository.findByChunkId(id); }
+  async findByChunkIds(ids: string[]) {
+    return this.repository.findByChunkIds ? this.repository.findByChunkIds(ids) : [...(await resolveEvidenceCitations({findByChunkId: id => this.repository.findByChunkId(id)}, ids)).values()];
+  }
 }

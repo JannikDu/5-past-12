@@ -22,6 +22,26 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 const mockFetch = (handler: (url: URL, init: RequestInit) => Response | Promise<Response>): typeof fetch =>
   async (input, init) => handler(new URL(String(input)), init ?? {});
 
+test('historical queries send explicit dates and category while preserving normalization', async () => {
+  const provider = new EonetProvider(mockFetch(url => {
+    assert.equal(url.searchParams.get('start'), '2025-01-01'); assert.equal(url.searchParams.get('end'), '2025-03-31');
+    assert.equal(url.searchParams.get('category'), 'severeStorms'); assert.equal(url.searchParams.get('days'), null);
+    assert.equal(url.searchParams.get('status'), 'all'); assert.equal(url.searchParams.get('limit'), '100');
+    return json({ events: [fixture()] });
+  }));
+  assert.equal((await provider.fetchEvents({ start: '2025-01-01', end: '2025-03-31', category: EventCategory.Storm, limit: 100 })).events.length, 1);
+});
+
+test('invalid, ambiguous and unbounded historical queries fail before HTTP', async () => {
+  let requests = 0; const provider = new EonetProvider(mockFetch(() => { requests++; return json({ events: [] }); }));
+  for (const query of [{ start: '2025-01-01' }, { start: '2025-02-30', end: '2025-03-31' },
+    { start: '2025-03-31', end: '2025-01-01' }, { start: '2020-01-01', end: '2026-01-01' },
+    { start: '2025-01-01', end: '2025-03-31', days: 30 }, { category: EventCategory.Other }]) {
+    await assert.rejects(provider.fetchEvents(query));
+  }
+  assert.equal(requests, 0);
+});
+
 test('feed normalization obeys the same domain contract as direct detail lookup', () => {
   const event = normalizeEonetEvent(fixture({ closed: '2026-01-04T00:00:00Z' }), fetchedAt);
   assert.ok(event);

@@ -16,6 +16,7 @@ export interface EvidenceRepository {
   knownItems(providerId: string, after: string | null, through: string, limit: number): Promise<KnownPublication[]>;
   search(query: EvidenceQuery, embedding: number[], generationId: string, publicationCap: number): Promise<EvidenceSearchResult[]>;
   findByChunkId(chunkId: string): Promise<EvidenceCitation | null>;
+  findByChunkIds?(chunkIds: string[]): Promise<EvidenceCitation[]>;
   startRebuild(profile: ProcessingProfile, owner: string): Promise<RebuildStatus>;
   rebuildStatus(): Promise<RebuildStatus | null>;
   resumeRebuild(profile: ProcessingProfile, owner: string): Promise<RebuildStatus>;
