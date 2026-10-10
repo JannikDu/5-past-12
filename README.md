@@ -83,85 +83,6 @@ Prompt:
 
 > Build an AI-powered solution that helps people understand environmental changes, prepare for climate impacts, use resources wisely, or create resilient systems.
 
-## Status
-
-Early development / MVP.
-
-The first vertical slice is implemented: NASA EONET v3 → validated `ClimateEvent`
-objects → interactive globe → event detail page.
-
-## Explore the prototype
-
-```sh
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-- Open `/` for live NASA EONET natural event reports from the last 30 days
-  (up to 60 records, including open and closed records).
-- Choose **Demo** for eight explicitly fictional events; live failures never
-  silently substitute fixtures.
-- Demo events include simulated climate connections covering **none**, **low**,
-  **medium**, and **high** human influence, with separate evidence-strength levels
-  in the list, event card, and detail page. These local scenarios need no backend
-  and contain no real scientific claims or citations.
-- The monochrome interface pairs a standalone globe with an animated feed total,
-  search, and event-type filters. Reduced-motion preferences are respected.
-- Drag the globe or use arrow keys and rotation buttons. Hover, focus, or click a
-  marker for its compact card. The list also exposes events on the far hemisphere.
-- Open **Explore event** for Summary, Cause / Climate Connection, Evidence,
-  and Sources. Links use `/events/detail?id=eonet%3AEONET_…` or a demo ID.
-  Direct lookup makes real event details reloadable independently of the recent feed.
-
-These are **natural event reports, not verified climate-impact events**. EONET
-reports do not supply event-specific scientific attribution. Attribution remains
-unassessed, severity remains unknown, and missing information is shown explicitly.
-Provider magnitude measurements retain their units and never become severity ratings.
-
-The browser fetches the public API; JavaScript and access to NASA are required for
-live data. No API key, database, or server adapter is required for this slice.
-Loading, retry, empty, and failure states are explicit. Malformed or duplicate
-records are skipped with a visible count. Invalid coordinates are rejected rather
-than guessed or silently swapped. Globe geography is sampled from bundled,
-public-domain Natural Earth land data and remains illustrative; polygon markers use
-the first vertex of the latest reported boundary, not its centroid.
-
-## Code map
-
-- `src/domain/climate-event.ts`: provider-independent types, enums, ID parsing,
-  and normalized-domain validation.
-- `src/data/providers/event-source.ts`: recent-feed and direct-lookup contract.
-- `src/data/providers/eonet.ts`: v3 requests, validation, and normalization.
-- `src/data/events.ts`: provider registry, lookup, and detail URL generation.
-- `src/data/demo-events.ts`: eight fictional fixtures.
-- `src/components/Globe.tsx` and `src/lib/globe.ts`: SVG globe and projection.
-- `src/components/EventDetail.tsx`: report metadata, evidence gaps, and sources.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the interfaces and extension points.
-
-## Development checks
-
-Use Node.js 24 and the pnpm version specified in `package.json`.
-
-```sh
-pnpm install --frozen-lockfile
-pnpm lint
-pnpm check
-pnpm test
-pnpm build
-```
-
-ESLint uses the recommended JavaScript, TypeScript, Astro, React, and React Hooks
-rule sets. Generated files are excluded, and lint warnings fail the check.
-
-GitHub Actions runs lint, type checks, tests, the frontend build and an evidence
-Worker dry-run bundle on pushes and pull requests. It does not deploy.
-
-`pnpm test` uses Node's native test runner with TypeScript transformation, covering
-provider validation, cancellation, IDs, provenance, and evidence separation without
-external network requests. The Node transformation flag can emit an experimental
-warning on supported Node versions.
-
 ## Evidence backend
 
 Climate Central and WWA evidence ingestion, hybrid retrieval, immutable citations,
@@ -191,6 +112,56 @@ Worker forwards only saved reads through its EVIDENCE service binding; secrets
 remain in the backend. `pnpm climate:update --refresh-only` performs discovery
 without generation. Production verification and limitations are recorded in the
 assessment implementation report linked above.
+
+
+## Self-Hosting & Deployment
+
+**5 Past 12** is hosted exclusively for the hackathon jury at [5-past-12.jannik-ea0.workers.dev](https://5-past-12.jannik-ea0.workers.dev). Access requires a verified email address with the `@forgehacks.dev` domain.
+
+**Privacy Notice:** Cloudflare, as the hosting and access provider, may process technical data such as IP addresses and device information. The 5 Past 12 application itself does not independently collect or store personal data.
+
+The project can also be deployed independently using Cloudflare Workers, Supabase, and Featherless AI.
+
+### Requirements
+
+- Node.js 24 and pnpm
+- Cloudflare account (Workers)
+- Supabase project (PostgreSQL)
+- Featherless AI API key
+
+### Setup
+
+1. Clone the repository and install dependencies:
+
+   ```bash
+   git clone <repository-url>
+   cd <repository-directory>
+   pnpm install --frozen-lockfile
+   ```
+
+2. Copy `.env.example` to `.env` and configure the required credentials and service URLs.
+
+3. Set up the Supabase database and apply the required migrations.
+
+4. Deploy the Evidence Worker and configure its environment variables, secrets, and scheduled ingestion jobs.
+
+5. Deploy the frontend to Cloudflare Workers and configure the service binding to the Evidence Worker.
+
+For detailed backend setup, migrations, and operational commands, see:
+- [Evidence Operating Guide](docs/evidence.md)
+- [Climate Assessment Guide](docs/climate-assessment.md)
+
+### Local Preview
+
+To explore the frontend locally:
+
+```bash
+pnpm dev
+```
+
+The application includes a **Demo Mode** with fictional example events and simulated evidence assessments, allowing reviewers to explore the interface without configuring the complete backend.
+
+**Note:** Demo data is synthetic and must not be interpreted as real scientific attribution. Live evidence collection and AI-assisted assessments require the configured backend services.
 
 ## License
 
